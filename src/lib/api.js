@@ -1,0 +1,249 @@
+import { supabase } from './supabase'
+import { rpcError } from './format'
+
+function throwIf(error) {
+  if (error) throw new Error(rpcError(error))
+}
+
+export async function rpc(name, args = {}) {
+  const { data, error } = await supabase.rpc(name, args)
+  throwIf(error)
+  return data
+}
+
+export async function getProfile() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  throwIf(error)
+  return data
+}
+
+export async function updateProfile(patch) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { error } = await supabase.from('profiles').update(patch).eq('id', user.id)
+  throwIf(error)
+}
+
+export async function getCatalog() {
+  const [rooms, units, rentals, caterers, rates, overnight, events, hours] = await Promise.all([
+    supabase.from('rooms').select('*').eq('is_active', true).order('sort_order'),
+    supabase.from('room_units').select('*').eq('is_active', true).order('sort_order'),
+    supabase.from('rentals').select('*').eq('is_active', true).order('sort_order'),
+    supabase.from('caterers').select('*').eq('is_active', true).order('name'),
+    supabase.from('rate_settings').select('*').order('label'),
+    supabase.from('overnight_tiers').select('*').order('pax_cap'),
+    supabase.from('event_bands').select('*').order('max_pax'),
+    supabase.from('tour_hour_rates').select('*').order('hours'),
+  ])
+  ;[rooms, units, rentals, caterers, rates, overnight, events, hours].forEach((result) => throwIf(result.error))
+  return {
+    rooms: rooms.data,
+    units: units.data,
+    rentals: rentals.data,
+    caterers: caterers.data,
+    rates: rates.data,
+    overnight: overnight.data,
+    events: events.data,
+    hours: hours.data,
+  }
+}
+
+export async function getOccupiedDates(from, to) {
+  return rpc('occupied_dates', { p_from: from, p_to: to })
+}
+
+export async function quoteBooking(payload) {
+  return rpc('quote_booking', { payload })
+}
+
+export async function submitBooking(payload) {
+  return rpc('submit_booking', { payload })
+}
+
+export async function createWalkIn(payload) {
+  return rpc('create_walk_in', { payload })
+}
+
+export async function listBookings() {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*, booking_rooms(*), booking_rentals(*), booking_charges(*), payments(*)')
+    .order('created_at', { ascending: false })
+  throwIf(error)
+  return data
+}
+
+export async function getBooking(id) {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*, booking_rooms(*), booking_rentals(*), booking_charges(*), payments(*)')
+    .eq('id', id)
+    .single()
+  throwIf(error)
+  return data
+}
+
+export async function approveBooking(id, override = null) {
+  return rpc('approve_booking', { p_id: id, p_override: override })
+}
+
+export async function rejectBooking(id, reason) {
+  return rpc('reject_booking', { p_id: id, p_reason: reason })
+}
+
+export async function cancelBooking(id) {
+  return rpc('cancel_booking', { p_id: id })
+}
+
+export async function amountDue(id) {
+  return rpc('booking_amount_due', { p_id: id })
+}
+
+export async function addCharge(bookingId, description, amount) {
+  return rpc('add_booking_charge', {
+    p_booking: bookingId,
+    p_description: description,
+    p_amount: amount,
+  })
+}
+
+export async function checkInBooking(id, { actualPax, extraHours, cash, ewallet }) {
+  return rpc('check_in_booking', {
+    p_id: id,
+    p_actual_pax: actualPax,
+    p_extra_hours: extraHours,
+    p_cash: cash,
+    p_ewallet: ewallet,
+  })
+}
+
+export async function listRoomUnits() {
+  const { data, error } = await supabase
+    .from('room_units')
+    .select('*, rooms(name, slug)')
+    .order('sort_order')
+  throwIf(error)
+  return data
+}
+
+export async function setRoomStatus(unitId, status) {
+  return rpc('set_room_status', { p_unit: unitId, p_status: status })
+}
+
+export async function listDispatches() {
+  const { data, error } = await supabase
+    .from('rental_dispatches')
+    .select('*, rentals(name), bookings(reference, guest_name, status)')
+    .order('dispatched_at', { ascending: false })
+  throwIf(error)
+  return data
+}
+
+export async function dispatchRental(bookingId, rentalId, qty) {
+  return rpc('dispatch_rental', { p_booking: bookingId, p_rental: rentalId, p_qty: qty })
+}
+
+export async function returnRental(id) {
+  return rpc('return_rental', { p_id: id })
+}
+
+export async function listNotifications() {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(40)
+  throwIf(error)
+  return data
+}
+
+export async function markNotificationRead(id) {
+  const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id)
+  throwIf(error)
+}
+
+export async function listUsers() {
+  const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+  throwIf(error)
+  return data
+}
+
+export async function inviteStaff(email, name, role) {
+  return rpc('invite_staff', { p_email: email, p_name: name, p_role: role })
+}
+
+export async function saveRate(key, amount) {
+  return rpc('save_rate', { p_key: key, p_amount: amount })
+}
+
+export async function updateOvernightTier(paxCap, amount) {
+  const { error } = await supabase.from('overnight_tiers').update({ amount }).eq('pax_cap', paxCap)
+  throwIf(error)
+}
+
+export async function updateEventBand(maxPax, patch) {
+  const { error } = await supabase.from('event_bands').update(patch).eq('max_pax', maxPax)
+  throwIf(error)
+}
+
+export async function updateHourRate(tourType, hours, amount) {
+  const { error } = await supabase
+    .from('tour_hour_rates')
+    .update({ amount })
+    .eq('tour_type', tourType)
+    .eq('hours', hours)
+  throwIf(error)
+}
+
+export async function updateUnitRate(id, rate) {
+  const { error } = await supabase.from('room_units').update({ rate }).eq('id', id)
+  throwIf(error)
+}
+
+export async function adminMetrics() {
+  return rpc('admin_metrics')
+}
+
+export async function adminReports() {
+  return rpc('admin_reports')
+}
+
+export async function startDownpayment(bookingId) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const response = await fetch('/api/paymongo/checkout', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token || ''}`,
+    },
+    body: JSON.stringify({ bookingId }),
+  })
+  const json = await response.json()
+  if (!response.ok) throw new Error(json.error || 'Could not start payment.')
+  return json
+}
+
+export async function verifyDownpayment(bookingId) {
+  const response = await fetch('/api/paymongo/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookingId }),
+  })
+  const json = await response.json()
+  if (!response.ok) throw new Error(json.error || 'Could not verify payment.')
+  return json
+}
+
+export async function uploadProof(userId, bookingId, file) {
+  const path = `${userId}/${bookingId}/${Date.now()}-${file.name}`
+  const { error } = await supabase.storage.from('payment-proofs').upload(path, file)
+  throwIf(error)
+  return path
+}
