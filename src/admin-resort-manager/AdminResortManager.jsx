@@ -345,6 +345,7 @@ export default function AdminResortManager({ session, onSignOut }) {
                 />
               </label>
             ))}
+            {catalog.overnight.map((tier) => (
               <label key={tier.pax_cap}>
                 Overnight · {tier.pax_cap} pax
                 <input

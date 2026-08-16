@@ -64,7 +64,7 @@ export default function HeroPage({ onBook, onStaff }) {
       </header>
 
       <section className="hero-banner">
-        <img className="hero-photo" src="/hero/aerial.png" alt="Aerial view of CK Resort pool, A-frame cottage, and rice fields" />
+        <img className="hero-photo" src="/hero/hero-night.png" alt="CK Resort A-frame cottage and pool at night" />
         <div className="hero-veil" />
         <div className="hero-overlay">
           <p className="hero-kicker">San Simon · Pampanga</p>
