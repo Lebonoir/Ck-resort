@@ -11,15 +11,38 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  async function applyProfile(next, { allowRetry = false } = {}) {
+    if (next && next.is_active === false) {
+      setProfile(null)
+      setError('This account has been deactivated. Contact the resort manager.')
+      await supabase.auth.signOut()
+      return null
+    }
+    if (next) {
+      setProfile(next)
+      setError('')
+      return next
+    }
+    if (!allowRetry) {
+      setProfile(null)
+      return null
+    }
+    return null
+  }
+
   async function loadProfile() {
     try {
-      for (let attempt = 0; attempt < 8; attempt += 1) {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
         const next = await getProfile()
-        if (next) {
-          setProfile(next)
-          return next
-        }
-        await new Promise((resolve) => setTimeout(resolve, 400))
+        if (next) return applyProfile(next)
+        await new Promise((resolve) => setTimeout(resolve, 350))
+      }
+      const {
+        data: { session: current },
+      } = await supabase.auth.getSession()
+      if (current) {
+        setError('This account is no longer available.')
+        await supabase.auth.signOut()
       }
       setProfile(null)
       return null
@@ -54,6 +77,37 @@ export function AuthProvider({ children }) {
       data.subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    if (!session?.user?.id) return undefined
+    const channel = supabase
+      .channel(`profile-${session.user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${session.user.id}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            setError('This account is no longer available.')
+            supabase.auth.signOut()
+            return
+          }
+          applyProfile(payload.new)
+        },
+      )
+      .subscribe()
+
+    function onFocus() {
+      loadProfile()
+    }
+    window.addEventListener('focus', onFocus)
+    const poll = window.setInterval(loadProfile, 8000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      window.removeEventListener('focus', onFocus)
+      window.clearInterval(poll)
+    }
+  }, [session?.user?.id])
 
   const value = useMemo(
     () => ({

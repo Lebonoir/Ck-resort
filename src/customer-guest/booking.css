@@ -326,12 +326,16 @@
 .flyers {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 
 .flyers img {
   width: 100%;
+  height: auto;
+  max-height: none;
+  object-fit: contain;
   border-radius: 16px;
+  background: #fff;
   box-shadow: 0 10px 24px rgba(7, 25, 46, 0.08);
 }
 

@@ -10,6 +10,96 @@
     linear-gradient(160deg, #04111f 0%, #0a2744 48%, #082033 100%);
 }
 
+.status-shell {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 28px 20px;
+  background:
+    radial-gradient(900px 480px at 50% 12%, rgba(62, 198, 224, 0.22), transparent 55%),
+    radial-gradient(700px 420px at 80% 90%, rgba(14, 70, 110, 0.5), transparent 50%),
+    linear-gradient(160deg, #04111f 0%, #0a2744 48%, #082033 100%);
+}
+
+.status-card {
+  width: min(460px, 100%);
+  text-align: center;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 28px;
+  padding: 28px 26px 22px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.status-kicker {
+  margin: 0 0 14px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a4e73;
+}
+
+.status-card .check-burst {
+  margin-bottom: 14px;
+}
+
+.status-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 42px;
+  line-height: 0.95;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.status-title em {
+  font-style: italic;
+  color: #1a4e73;
+}
+
+.status-card .submit {
+  margin-top: 4px;
+}
+
+.status-pill {
+  display: inline-block;
+  margin: 12px 0 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(62, 198, 224, 0.16);
+  color: var(--navy-mid);
+}
+
+.status-pill.warn {
+  background: rgba(201, 161, 91, 0.22);
+  color: #8a5a12;
+}
+
+.status-pill.no {
+  background: rgba(194, 59, 74, 0.12);
+  color: var(--danger);
+}
+
+.status-pill.ok {
+  background: rgba(28, 154, 106, 0.16);
+  color: var(--ok);
+}
+
+.status-card p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.status-card .submit {
+  width: 100%;
+}
+
 .water-glow {
   position: absolute;
   border-radius: 50%;

@@ -5,7 +5,6 @@ import {
   adminReports,
   approveBooking,
   getCatalog,
-  inviteStaff,
   listBookings,
   listNotifications,
   listUsers,
@@ -18,14 +17,10 @@ import {
   updateUnitRate,
 } from '../lib/api'
 import { peso, prettyDate, rpcError, STATUS_LABELS } from '../lib/format'
+import UsersPanel from './UsersPanel'
 import './admin.css'
 
 const NAV = ['Dashboard', 'Approvals', 'Users', 'Rates', 'Reports']
-const ROLE_OPTIONS = [
-  { id: 'front_desk', label: 'Front Desk / Cashier' },
-  { id: 'staff', label: 'Resort Operations / Staff' },
-  { id: 'admin', label: 'Admin / Resort Manager' },
-]
 
 export default function AdminResortManager({ session, onSignOut }) {
   const [active, setActive] = useState('Dashboard')
@@ -38,9 +33,6 @@ export default function AdminResortManager({ session, onSignOut }) {
   const [selectedId, setSelectedId] = useState('')
   const [override, setOverride] = useState('')
   const [reason, setReason] = useState('')
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState('front_desk')
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
 
@@ -96,12 +88,14 @@ export default function AdminResortManager({ session, onSignOut }) {
       {error ? <p className="flash error">{error}</p> : null}
       {saved ? <p className="flash ok">{saved}</p> : null}
 
-      <div className="stats">
-        <Stat label="Pending" value={String(metrics?.pending ?? pending.length)} hint="In queue" />
-        <Stat label="Occupancy" value={`${metrics?.occupancy ?? 0}%`} hint="Rooms occupied" />
-        <Stat label="Today in / out" value={`${metrics?.checkins_today ?? 0} / ${metrics?.checkouts_today ?? 0}`} hint="Check-ins / check-outs" />
-        <Stat label="Collected" value={peso(metrics?.revenue)} hint="Paid receipts" />
-      </div>
+      {active !== 'Users' ? (
+        <div className="stats">
+          <Stat label="Pending" value={String(metrics?.pending ?? pending.length)} hint="In queue" />
+          <Stat label="Occupancy" value={`${metrics?.occupancy ?? 0}%`} hint="Rooms occupied" />
+          <Stat label="Today in / out" value={`${metrics?.checkins_today ?? 0} / ${metrics?.checkouts_today ?? 0}`} hint="Check-ins / check-outs" />
+          <Stat label="Collected" value={peso(metrics?.revenue)} hint="Paid receipts" />
+        </div>
+      ) : null}
 
       {active === 'Dashboard' && (
         <div className="admin-split">
@@ -256,56 +250,15 @@ export default function AdminResortManager({ session, onSignOut }) {
       )}
 
       {active === 'Users' && (
-        <div className="admin-split">
-          <section className="admin-card">
-            <h3>Create staff account</h3>
-            <form
-              className="user-form"
-              onSubmit={async (event) => {
-                event.preventDefault()
-                try {
-                  await inviteStaff(email, name, role)
-                  setName('')
-                  setEmail('')
-                  setSaved('Invite saved. They must register with that email, then they receive the assigned role.')
-                  await reload()
-                } catch (err) {
-                  setError(rpcError(err))
-                }
-              }}
-            >
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Full name" required />
-              <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" type="email" required />
-              <select value={role} onChange={(event) => setRole(event.target.value)}>
-                {ROLE_OPTIONS.map((itemRole) => (
-                  <option key={itemRole.id} value={itemRole.id}>
-                    {itemRole.label}
-                  </option>
-                ))}
-              </select>
-              <button type="submit">Save invite</button>
-            </form>
-            <p className="admin-note">Guests still sign up on their own. Staff/admin must register using the invited email.</p>
-          </section>
-          <section className="admin-card">
-            <h3>Directory</h3>
-            <ul className="list">
-              {users.map((user) => (
-                <li key={user.id}>
-                  <div>
-                    <b>
-                      {user.first_name} {user.last_name}
-                    </b>
-                    <small>
-                      {user.role} · {user.email}
-                    </small>
-                  </div>
-                  <span className="pill ok">{user.is_active ? 'active' : 'inactive'}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
+        <UsersPanel
+          users={users}
+          onReload={reload}
+          onError={setError}
+          onSaved={(message) => {
+            setError('')
+            setSaved(message)
+          }}
+        />
       )}
 
       {active === 'Rates' && catalog && (

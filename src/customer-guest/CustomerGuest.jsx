@@ -15,8 +15,16 @@ import './booking.css'
 
 const NAV = ['Home', 'Book a stay', 'My reservations', 'Notifications']
 
+const PACKAGES = [
+  { id: 'day', label: 'Day tour from', hint: '20 pax · 8:00 AM – 4:00 PM', rateKey: 'day' },
+  { id: 'night', label: 'Night tour from', hint: '20 pax · 5:00 PM – 12:00 AM', rateKey: 'night' },
+  { id: 'overnight', label: 'Overnight from', hint: '10 pax · 22 hours', rateKey: 'overnight' },
+  { id: 'event', label: 'Event from', hint: 'Day event · max 50 pax', rateKey: 'event' },
+]
+
 export default function CustomerGuest({ session, onSignOut }) {
   const [active, setActive] = useState('Home')
+  const [initialPackage, setInitialPackage] = useState('day')
   const [catalog, setCatalog] = useState(null)
   const [bookings, setBookings] = useState([])
   const [notes, setNotes] = useState([])
@@ -41,6 +49,11 @@ export default function CustomerGuest({ session, onSignOut }) {
   useEffect(() => {
     reload()
   }, [])
+
+  function openBooking(tourType = 'day') {
+    setInitialPackage(tourType)
+    setActive('Book a stay')
+  }
 
   async function pay(booking) {
     setBusy(booking.id)
@@ -68,10 +81,12 @@ export default function CustomerGuest({ session, onSignOut }) {
     }
   }
 
-  const day = catalog?.rates.find((row) => row.key === 'day_20')?.amount || 6000
-  const night = catalog?.rates.find((row) => row.key === 'night_20')?.amount || 7000
-  const overnight = catalog?.overnight?.[0]?.amount || 12000
-  const eventRate = catalog?.events?.[0]?.day_amount || 10000
+  const prices = {
+    day: catalog?.rates.find((row) => row.key === 'day_20')?.amount || 6000,
+    night: catalog?.rates.find((row) => row.key === 'night_20')?.amount || 7000,
+    overnight: catalog?.overnight?.[0]?.amount || 12000,
+    event: catalog?.events?.[0]?.day_amount || 10000,
+  }
 
   return (
     <RoleLayout
@@ -88,22 +103,28 @@ export default function CustomerGuest({ session, onSignOut }) {
       {active === 'Home' && (
         <>
           <div className="stats">
-            <Stat label="Day tour from" value={peso(day)} hint="20 pax · 8:00 AM – 4:00 PM" />
-            <Stat label="Night tour from" value={peso(night)} hint="20 pax · 5:00 PM – 12:00 AM" />
-            <Stat label="Overnight from" value={peso(overnight)} hint="10 pax · 22 hours" />
-            <Stat label="Event from" value={peso(eventRate)} hint="Day event · max 50 pax" />
+            {PACKAGES.map((item) => (
+              <Stat
+                key={item.id}
+                label={item.label}
+                value={peso(prices[item.rateKey])}
+                hint={`${item.hint} · Tap to book`}
+                onClick={() => openBooking(item.id)}
+              />
+            ))}
           </div>
-          <div className="grid-2">
-            <Panel title="Guest booking">
+          <div className="grid-2 home-split">
+            <Panel title="Guest booking" className="booking-intro">
               <p className="note">
                 Pick a package and date, add rooms, then rentals and catering. A 50% downpayment is due only after the
                 manager approves your request.
               </p>
-              <button type="button" className="book-btn" onClick={() => setActive('Book a stay')}>
+              <button type="button" className="book-btn" onClick={() => openBooking('day')}>
                 Start booking
               </button>
             </Panel>
-            <Panel title="Rates">
+            <Panel title="Rates" className="rates-panel">
+              <div className="rates-glow" aria-hidden="true" />
               <div className="flyers">
                 <img src="/flyers/packages.png" alt="CK Resort packages and prices" />
                 <img src="/flyers/charges.png" alt="CK Resort other charges and catering" />
@@ -113,7 +134,16 @@ export default function CustomerGuest({ session, onSignOut }) {
         </>
       )}
 
-      {active === 'Book a stay' && <BookingFlow onDone={() => { setActive('My reservations'); reload() }} />}
+      {active === 'Book a stay' && (
+        <BookingFlow
+          key={initialPackage}
+          initialTourType={initialPackage}
+          onDone={() => {
+            setActive('My reservations')
+            reload()
+          }}
+        />
+      )}
 
       {active === 'My reservations' && (
         <Panel title="Your bookings">

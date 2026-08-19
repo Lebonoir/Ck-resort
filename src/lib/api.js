@@ -173,8 +173,117 @@ export async function listUsers() {
   return data
 }
 
+function isMissingRpc(error) {
+  const message = `${error?.message || ''} ${error?.code || ''}`
+  return /PGRST202|schema cache|could not find the function/i.test(message)
+}
+
+function accountRpcArgs(payload) {
+  return {
+    p_id: payload.id,
+    p_first_name: payload.firstName,
+    p_last_name: payload.lastName || '',
+    p_email: payload.email,
+    p_contact: payload.contact || '',
+    p_role: payload.role,
+    p_is_active: payload.isActive !== false,
+  }
+}
+
+async function persistAccountRow(payload) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (user?.id === payload.id && payload.isActive === false) {
+    throw new Error('You cannot deactivate the account you are signed in with')
+  }
+  if (payload.role !== 'admin' || payload.isActive === false) {
+    const { data: current, error: currentError } = await supabase
+      .from('profiles')
+      .select('role, is_active')
+      .eq('id', payload.id)
+      .single()
+    throwIf(currentError)
+    if (current?.role === 'admin' && current?.is_active) {
+      const { data: others, error: adminError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin')
+        .eq('is_active', true)
+        .neq('id', payload.id)
+      throwIf(adminError)
+      if (!others?.length) throw new Error('Keep at least one active admin account')
+    }
+  }
+  const patch = {
+    first_name: payload.firstName.trim(),
+    last_name: (payload.lastName || '').trim(),
+    email: payload.email.trim().toLowerCase(),
+    contact: (payload.contact || '').trim(),
+    role: payload.role,
+    is_active: payload.isActive !== false,
+  }
+  const { data, error } = await supabase.from('profiles').update(patch).eq('id', payload.id).select().single()
+  throwIf(error)
+  const { error: inviteError } = await supabase.rpc('invite_staff', {
+    p_email: patch.email,
+    p_name: `${patch.first_name} ${patch.last_name}`.trim(),
+    p_role: payload.role,
+  })
+  if (inviteError && !isMissingRpc(inviteError) && !/Guests sign up/i.test(inviteError.message || '')) {
+    throw new Error(rpcError(inviteError))
+  }
+  return data
+}
+
 export async function inviteStaff(email, name, role) {
   return rpc('invite_staff', { p_email: email, p_name: name, p_role: role })
+}
+
+export async function adminUpdateAccount(payload) {
+  const { data, error } = await supabase.rpc('admin_update_account', accountRpcArgs(payload))
+  if (!error) return data
+  if (!isMissingRpc(error)) throw new Error(rpcError(error))
+  return persistAccountRow(payload)
+}
+
+export async function adminCreateAccount(payload) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const response = await fetch('/api/admin/create-user', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token || ''}`,
+    },
+    body: JSON.stringify(payload),
+  })
+  const json = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(json.error || 'Could not create account.')
+  return json
+}
+
+export async function adminDeleteAccount(userId) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const response = await fetch('/api/admin/delete-user', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token || ''}`,
+    },
+    body: JSON.stringify({ userId }),
+  })
+  const json = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    if (response.status === 404) {
+      return rpc('admin_delete_account', { p_id: userId })
+    }
+    throw new Error(json.error || 'Could not delete account.')
+  }
+  return json
 }
 
 export async function saveRate(key, amount) {

@@ -23,17 +23,23 @@ export default function PaymentReturn({ bookingId, cancelled, onDone }) {
     }
   }, [bookingId, cancelled])
 
+  const paid = /confirmed|received/i.test(message)
+  const pill = cancelled ? 'Cancelled' : error ? 'Needs attention' : paid ? 'Confirmed' : 'Confirming'
+  const pillClass = cancelled || error ? 'no' : paid ? 'ok' : 'warn'
+
   return (
-    <div className="auth-shell" style={{ placeItems: 'center', display: 'grid' }}>
-      <div className="form-card" style={{ maxWidth: 480, margin: 40 }}>
-        <div className="welcome">
-          <div className="check-burst">{error || cancelled ? '!' : '✓'}</div>
-          <h2>Payment</h2>
-          <p>{error || message}</p>
-          <button type="button" className="submit" onClick={onDone}>
-            Back to workspace
-          </button>
-        </div>
+    <div className="status-shell">
+      <div className="status-card">
+        <p className="status-kicker">CK Resort · PayMongo</p>
+        <div className="check-burst">{error || cancelled ? '!' : '✓'}</div>
+        <h2 className="status-title">
+          Pay<em>ment</em>
+        </h2>
+        <span className={`status-pill ${pillClass}`}>{pill}</span>
+        <p>{error || message}</p>
+        <button type="button" className="submit" onClick={onDone}>
+          Back to workspace
+        </button>
       </div>
     </div>
   )

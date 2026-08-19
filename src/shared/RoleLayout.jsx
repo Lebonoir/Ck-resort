@@ -153,19 +153,27 @@ export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread
   )
 }
 
-export function Stat({ label, value, hint }) {
-  return (
-    <article className="stat">
+export function Stat({ label, value, hint, onClick }) {
+  const inner = (
+    <>
       <p>{label}</p>
       <strong>{value}</strong>
       {hint ? <span>{hint}</span> : null}
-    </article>
+    </>
   )
+  if (onClick) {
+    return (
+      <button type="button" className="stat clickable" onClick={onClick}>
+        {inner}
+      </button>
+    )
+  }
+  return <article className="stat">{inner}</article>
 }
 
-export function Panel({ title, children }) {
+export function Panel({ title, children, className = '' }) {
   return (
-    <article className="panel">
+    <article className={`panel ${className}`.trim()}>
       {title ? <h2>{title}</h2> : null}
       {children}
     </article>

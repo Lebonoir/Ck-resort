@@ -74,7 +74,7 @@ function Calendar({ value, onChange, blocked }) {
   )
 }
 
-export default function BookingFlow({ onDone }) {
+export default function BookingFlow({ onDone, initialTourType = 'day' }) {
   const [step, setStep] = useState(0)
   const [catalog, setCatalog] = useState(null)
   const [occupied, setOccupied] = useState([])
@@ -83,9 +83,9 @@ export default function BookingFlow({ onDone }) {
   const [sent, setSent] = useState(null)
   const [summary, setSummary] = useState({ lines: [], total: 0, downpayment: 0, package_label: '' })
   const [booking, setBooking] = useState({
-    tour_type: 'day',
+    tour_type: initialTourType,
     stay_date: '',
-    pax: 20,
+    pax: initialTourType === 'overnight' ? 10 : 20,
     hours: 8,
     extra_hours: 0,
     overnight_shift: '9:00 AM – 7:00 AM',
