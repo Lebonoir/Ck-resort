@@ -1,5 +1,6 @@
 -- CK Resort & Events Place — full schema
 -- Run this entire file in the Supabase SQL Editor (once).
+-- Then run booking_lifecycle_types.sql, commit, then booking_lifecycle.sql.
 
 create extension if not exists pgcrypto;
 
@@ -15,8 +16,11 @@ do $$ begin
     'awaiting_downpayment',
     'confirmed',
     'checked_in',
+    'checked_out',
     'completed',
-    'cancelled'
+    'cancelled',
+    'expired',
+    'no_show'
   );
 exception when duplicate_object then null;
 end $$;
@@ -181,10 +185,22 @@ create table if not exists public.bookings (
   approved_at timestamptz,
   checked_in_by uuid references public.profiles (id),
   checked_in_at timestamptz,
+  checked_out_by uuid references public.profiles (id),
+  checked_out_at timestamptz,
+  payment_due_at timestamptz,
+  expired_at timestamptz,
+  credit_held numeric(12,2) not null default 0,
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.bookings
+  add column if not exists payment_due_at timestamptz,
+  add column if not exists checked_out_at timestamptz,
+  add column if not exists checked_out_by uuid references public.profiles (id),
+  add column if not exists expired_at timestamptz,
+  add column if not exists credit_held numeric(12,2) not null default 0;
 
 alter table public.room_units
   drop constraint if exists room_units_current_booking_id_fkey;
@@ -358,15 +374,15 @@ security definer
 set search_path = public
 as $$
 declare
-  tour text := coalesce(payload->>'tour_type', 'day');
-  stay date := nullif(payload->>'stay_date', '')::date;
-  pax int := greatest(coalesce((payload->>'pax')::int, 1), 1);
+  v_tour text := coalesce(payload->>'tour_type', 'day');
+  v_stay date := nullif(payload->>'stay_date', '')::date;
+  v_pax int := greatest(coalesce((payload->>'pax')::int, 1), 1);
   p_hours int := coalesce((payload->>'hours')::int, 8);
-  extra_hours int := greatest(coalesce((payload->>'extra_hours')::int, 0), 0);
-  event_when text := coalesce(payload->>'event_when', 'day');
-  shift text := payload->>'overnight_shift';
-  pets int := greatest(coalesce((payload->>'pets')::int, 0), 0);
-  caterer uuid := nullif(payload->>'caterer_id', '')::uuid;
+  v_extra_hours int := greatest(coalesce((payload->>'extra_hours')::int, 0), 0);
+  v_event_when text := coalesce(payload->>'event_when', 'day');
+  v_shift text := payload->>'overnight_shift';
+  v_pets int := greatest(coalesce((payload->>'pets')::int, 0), 0);
+  v_caterer uuid := nullif(payload->>'caterer_id', '')::uuid;
   unit_ids uuid[] := coalesce(array(select jsonb_array_elements_text(payload->'room_unit_ids'))::uuid[], '{}');
   lines jsonb := '[]'::jsonb;
   total numeric := 0;
@@ -379,18 +395,18 @@ declare
   room_names text;
   partner boolean;
 begin
-  if tour = 'overnight' then
+  if v_tour = 'overnight' then
     select t.amount, t.pax_cap into base, cap
     from public.overnight_tiers t
-    where t.pax_cap >= pax
+    where t.pax_cap >= v_pax
     order by t.pax_cap
     limit 1;
     if base is null then
-      select amount, pax_cap into base, cap from public.overnight_tiers order by pax_cap desc limit 1;
-      extra_pax := pax - cap;
+      select ot.amount, ot.pax_cap into base, cap from public.overnight_tiers ot order by ot.pax_cap desc limit 1;
+      extra_pax := v_pax - cap;
       extra_fee := extra_pax * public.rate_amount('extra_pax_overnight');
     end if;
-    label := 'Overnight · ' || cap || ' pax' || coalesce(' · ' || shift, '');
+    label := 'Overnight · ' || cap || ' pax' || coalesce(' · ' || v_shift, '');
     lines := lines || jsonb_build_array(jsonb_build_object('label', label, 'amount', base));
     if extra_fee > 0 then
       lines := lines || jsonb_build_array(jsonb_build_object(
@@ -398,34 +414,34 @@ begin
         'amount', extra_fee
       ));
     end if;
-  elsif tour = 'event' then
-    select case when event_when = 'night' then b.night_amount else b.day_amount end, b.max_pax
+  elsif v_tour = 'event' then
+    select case when v_event_when = 'night' then eb.night_amount else eb.day_amount end, eb.max_pax
       into base, cap
-    from public.event_bands b
-    where b.max_pax >= pax
-    order by b.max_pax
+    from public.event_bands eb
+    where eb.max_pax >= v_pax
+    order by eb.max_pax
     limit 1;
     if base is null then
-      select case when event_when = 'night' then night_amount else day_amount end, max_pax
+      select case when v_event_when = 'night' then eb.night_amount else eb.day_amount end, eb.max_pax
         into base, cap
-      from public.event_bands order by max_pax desc limit 1;
+      from public.event_bands eb order by eb.max_pax desc limit 1;
     end if;
-    label := 'Event · ' || initcap(event_when) || ' · up to ' || pax || ' pax';
+    label := 'Event · ' || initcap(v_event_when) || ' · up to ' || v_pax || ' pax';
     lines := lines || jsonb_build_array(jsonb_build_object('label', label, 'amount', coalesce(base, 0)));
   else
-    if pax <= 20 then
-      base := public.rate_amount(tour || '_20');
+    if v_pax <= 20 then
+      base := public.rate_amount(v_tour || '_20');
       extra_pax := 0;
       extra_fee := 0;
     else
-      select amount into base from public.tour_hour_rates thr where thr.tour_type = tour and thr.hours = p_hours;
+      select thr.amount into base from public.tour_hour_rates thr where thr.tour_type = v_tour and thr.hours = p_hours;
       if base is null then
-        select amount into base from public.tour_hour_rates thr where thr.tour_type = tour and thr.hours = 8;
+        select thr.amount into base from public.tour_hour_rates thr where thr.tour_type = v_tour and thr.hours = 8;
       end if;
-      extra_pax := greatest(pax - 30, 0);
+      extra_pax := greatest(v_pax - 30, 0);
       extra_fee := extra_pax * public.rate_amount('extra_pax_tour');
     end if;
-    label := case when tour = 'day' then 'Day Tour' else 'Night Tour' end || ' · ' || pax || ' pax';
+    label := case when v_tour = 'day' then 'Day Tour' else 'Night Tour' end || ' · ' || v_pax || ' pax';
     lines := lines || jsonb_build_array(jsonb_build_object('label', label, 'amount', coalesce(base, 0)));
     if extra_fee > 0 then
       lines := lines || jsonb_build_array(jsonb_build_object(
@@ -435,14 +451,14 @@ begin
     end if;
   end if;
 
-  if extra_hours > 0 then
+  if v_extra_hours > 0 then
     lines := lines || jsonb_build_array(jsonb_build_object(
-      'label', 'Extra hour × ' || extra_hours,
-      'amount', extra_hours * public.rate_amount('extra_hour')
+      'label', 'Extra hour × ' || v_extra_hours,
+      'amount', v_extra_hours * public.rate_amount('extra_hour')
     ));
   end if;
 
-  if stay is not null and extract(dow from stay) in (0, 5, 6) then
+  if v_stay is not null and extract(dow from v_stay) in (0, 5, 6) then
     lines := lines || jsonb_build_array(jsonb_build_object(
       'label', 'Weekend / holiday rate (Fri–Sun)',
       'amount', public.rate_amount('weekend')
@@ -450,10 +466,10 @@ begin
   end if;
 
   if cardinality(unit_ids) > 0 then
-    select string_agg(rooms.name || ' ' || u.name, ', ' order by rooms.sort_order, u.sort_order), coalesce(sum(u.rate), 0)
+    select string_agg(rm.name || ' ' || u.name, ', ' order by rm.sort_order, u.sort_order), coalesce(sum(u.rate), 0)
       into room_names, extra_fee
     from public.room_units u
-    join public.rooms on rooms.id = u.room_id
+    join public.rooms rm on rm.id = u.room_id
     where u.id = any (unit_ids);
     lines := lines || jsonb_build_array(jsonb_build_object(
       'label', 'Rooms · ' || coalesce(room_names, 'selected'),
@@ -474,15 +490,15 @@ begin
     end loop;
   end if;
 
-  if pets > 0 then
+  if v_pets > 0 then
     lines := lines || jsonb_build_array(jsonb_build_object(
-      'label', 'Pet fee × ' || pets,
-      'amount', pets * public.rate_amount('pet')
+      'label', 'Pet fee × ' || v_pets,
+      'amount', v_pets * public.rate_amount('pet')
     ));
   end if;
 
-  if caterer is not null then
-    select is_partner, name into partner, room_names from public.caterers where id = caterer;
+  if v_caterer is not null then
+    select c.is_partner, c.name into partner, room_names from public.caterers c where c.id = v_caterer;
     if partner then
       lines := lines || jsonb_build_array(jsonb_build_object('label', 'Tie-up catering · ' || room_names, 'amount', 0));
     else
@@ -769,21 +785,31 @@ set search_path = public
 as $$
 declare
   b public.bookings;
+  v_dp_window_hours int;
 begin
   if not public.is_admin() then
     raise exception 'Admin only';
   end if;
+  perform public.process_booking_lifecycle();
   select * into b from public.bookings where id = p_id for update;
   if not found then raise exception 'Booking not found'; end if;
+  if b.status = 'expired' then
+    raise exception 'This booking has expired';
+  end if;
   if b.status <> 'pending_approval' then
     raise exception 'Only pending bookings can be approved';
   end if;
+  if now() > public.booking_ends_at(b) then
+    raise exception 'The stay window has already ended';
+  end if;
+  v_dp_window_hours := public.setting('downpayment_hours', '48')::int;
   update public.bookings
   set status = 'awaiting_downpayment',
       approved_by = auth.uid(),
       approved_at = now(),
+      payment_due_at = least(now() + (v_dp_window_hours::text || ' hours')::interval, public.booking_starts_at(b)),
       override_amount = p_override,
-      downpayment_amount = round(coalesce(p_override, total_amount) * 0.5, 2)
+      downpayment_amount = round(coalesce(p_override, bookings.total_amount) * 0.5, 2)
   where id = p_id
   returning * into b;
 
@@ -1045,10 +1071,10 @@ begin
     insert into public.payments (booking_id, type, method, amount, status, received_by, paid_at, receipt_no, notes)
     values (
       p_id,
-      case when b.is_walk_in and b.paid_amount = 0 then 'full' else 'balance' end,
-      case when coalesce(p_ewallet, 0) > coalesce(p_cash, 0) then 'ewallet' else 'cash' end,
+      (case when b.is_walk_in and b.paid_amount = 0 then 'full' else 'balance' end)::public.payment_type,
+      (case when coalesce(p_ewallet, 0) > coalesce(p_cash, 0) then 'ewallet' else 'cash' end)::public.payment_method,
       due,
-      'paid',
+      'paid'::public.payment_status,
       auth.uid(),
       now(),
       'OR-' || lpad(nextval('public.receipt_seq')::text, 6, '0'),
@@ -1597,7 +1623,11 @@ drop policy if exists audit_admin on public.audit_logs;
 create policy audit_admin on public.audit_logs for select to authenticated using (public.is_admin());
 
 insert into public.app_settings (key, value)
-values ('internal_api_secret', 'ck-resort-internal-pay-confirm')
+values
+  ('internal_api_secret', 'ck-resort-internal-pay-confirm'),
+  ('downpayment_hours', '48'),
+  ('no_show_grace_minutes', '120'),
+  ('no_show_downpayment_policy', 'retain')
 on conflict (key) do nothing;
 
 insert into public.rate_settings (key, label, amount) values
@@ -1729,4 +1759,7 @@ end $$;
 alter table public.profiles replica identity full;
 
 notify pgrst, 'reload schema';
+
+-- After a fresh install, run booking_lifecycle_types.sql then booking_lifecycle.sql
+-- (two separate SQL Editor runs) so expire/no-show/checkout automation is installed.
 

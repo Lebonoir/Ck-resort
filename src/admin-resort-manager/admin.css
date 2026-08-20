@@ -137,6 +137,7 @@
 .user-form input,
 .user-form select,
 .rate-grid input,
+.rate-grid select,
 .admin-card label input {
   border: 1.5px solid var(--line);
   border-radius: 12px;

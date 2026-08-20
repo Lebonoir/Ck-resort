@@ -333,6 +333,11 @@ button.stat.clickable:focus-visible {
   background: #eef8fb;
 }
 
+.list li.focus {
+  outline: 2px solid var(--aqua);
+  background: #eefafc;
+}
+
 .list li:nth-child(2) { animation-delay: 0.04s; }
 .list li:nth-child(3) { animation-delay: 0.08s; }
 .list li:nth-child(4) { animation-delay: 0.12s; }
@@ -348,15 +353,19 @@ button.stat.clickable:focus-visible {
   color: var(--muted);
 }
 
-.pill {
-  align-self: center;
-  background: rgba(62, 198, 224, 0.16);
-  color: var(--navy-mid);
-  font-size: 12px;
-  font-weight: 700;
-  padding: 6px 10px;
-  border-radius: 999px;
-  white-space: nowrap;
+.pill.status-expired,
+.pill.status-no_show,
+.pill.status-cancelled,
+.pill.status-rejected {
+  background: #fdecee;
+  color: var(--danger);
+}
+
+.pill.status-confirmed,
+.pill.status-checked_in,
+.pill.status-completed {
+  background: #e9f8f1;
+  color: var(--ok);
 }
 
 .flash {
@@ -365,6 +374,73 @@ button.stat.clickable:focus-visible {
   border-radius: 12px;
   font-weight: 600;
   animation: toastIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.inline-flash {
+  margin: 12px 0 0;
+}
+
+.action-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(440px, calc(100vw - 24px));
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  box-shadow: 0 16px 40px rgba(7, 25, 46, 0.18);
+  animation: toastIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.action-toast p {
+  margin: 0;
+}
+
+.action-toast.error {
+  background: #fdecee;
+  color: var(--danger);
+}
+
+.action-toast.ok {
+  background: #e9f8f1;
+  color: var(--ok);
+}
+
+.action-toast.busy {
+  background: #eef6fb;
+  color: var(--navy);
+}
+
+.action-toast-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  animation: actionPulse 0.9s ease-in-out infinite;
+}
+
+@keyframes actionPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .flash.error {

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RoleLayout, Stat } from '../shared/RoleLayout'
+import { ActionToast, RoleLayout, Stat } from '../shared/RoleLayout'
 import RentalDispatch from '../shared/RentalDispatch'
 import {
   addCharge,
   checkInBooking,
+  checkOutBooking,
   createWalkIn,
   dispatchRental,
   getCatalog,
@@ -11,7 +12,7 @@ import {
   listDispatches,
   returnRental,
 } from '../lib/api'
-import { peso, prettyDate, rpcError, STATUS_LABELS } from '../lib/format'
+import { peso, prettyDate, rpcError, STATUS_LABELS, verifiedPaid } from '../lib/format'
 import './front-desk.css'
 
 const NAV = ['POS & Check-in', 'Rental dispatch', 'Receipts']
@@ -80,6 +81,7 @@ export default function FrontDeskCashier({ session, onSignOut }) {
   const [chargeAmount, setChargeAmount] = useState('')
   const [error, setError] = useState('')
   const [done, setDone] = useState('')
+  const [busy, setBusy] = useState('')
   const [receipt, setReceipt] = useState(null)
 
   async function reload() {
@@ -98,18 +100,21 @@ export default function FrontDeskCashier({ session, onSignOut }) {
     `${item.reference} ${item.guest_name}`.toLowerCase().includes(query.toLowerCase()),
   )
   const booking = bookings.find((item) => item.id === selectedId)
-  const arriving = bookings.filter((item) => ['confirmed', 'awaiting_downpayment'].includes(item.status) || (item.is_walk_in && item.status === 'confirmed'))
+  const arriving = bookings.filter((item) => item.status === 'confirmed')
   const inside = bookings.filter((item) => item.status === 'checked_in')
   const extraPaxRate = catalog?.rates.find((row) => row.key === (booking?.tour_type === 'overnight' ? 'extra_pax_overnight' : 'extra_pax_tour'))?.amount || 200
   const hourRate = catalog?.rates.find((row) => row.key === 'extra_hour')?.amount || 1000
 
   const preview = useMemo(() => {
     if (!booking) return null
+    const checkedIn = ['checked_in', 'checked_out'].includes(booking.status)
     const bill = Number(booking.override_amount ?? booking.total_amount)
-    const excess = Math.max(actualPax - booking.pax, 0)
+    const paid = verifiedPaid(booking)
+    const excess = checkedIn ? Number(booking.excess_pax || 0) : Math.max(actualPax - booking.pax, 0)
     const charges = (booking.booking_charges || []).reduce((sum, row) => sum + Number(row.amount), 0)
-    const due = Math.max(bill - Number(booking.paid_amount) + excess * extraPaxRate + extraHours * hourRate + charges, 0)
-    return { excess, charges, due }
+    const hoursFee = (checkedIn ? Number(booking.checkin_extra_hours || 0) : extraHours) * hourRate
+    const due = Math.max(bill - paid + charges + excess * extraPaxRate + hoursFee, 0)
+    return { excess, charges, due, paid, checkedIn }
   }, [booking, actualPax, extraHours, extraPaxRate, hourRate])
 
   function pick(item) {
@@ -120,10 +125,13 @@ export default function FrontDeskCashier({ session, onSignOut }) {
     setCash('')
     setEwallet('')
     setDone('')
+    setError('')
   }
 
   async function loadWalkIn() {
     setError('')
+    setDone('')
+    setBusy('walkin')
     try {
       const created = await createWalkIn({
         guest_name: walkName,
@@ -137,14 +145,19 @@ export default function FrontDeskCashier({ session, onSignOut }) {
       setWalkIn(false)
       setWalkName('')
       pick(row)
+      setDone(`${row.guest_name} loaded to POS.`)
     } catch (err) {
       setError(rpcError(err))
+    } finally {
+      setBusy('')
     }
   }
 
   async function collect() {
     if (!booking) return
     setError('')
+    setDone('')
+    setBusy('collect')
     try {
       const result = await checkInBooking(booking.id, {
         actualPax,
@@ -157,6 +170,29 @@ export default function FrontDeskCashier({ session, onSignOut }) {
       await reload()
     } catch (err) {
       setError(rpcError(err))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function checkout() {
+    if (!booking) return
+    setError('')
+    setDone('')
+    setBusy('checkout')
+    try {
+      const result = await checkOutBooking(booking.id, {
+        cash: Number(cash) || 0,
+        ewallet: Number(ewallet) || 0,
+      })
+      const doneLabel = result.booking?.status === 'completed' ? 'Stay completed' : 'Checked out'
+      setDone(`${booking.guest_name} · ${doneLabel}. ${peso(result.due)} collected.`)
+      setReceipt({ booking, result })
+      await reload()
+    } catch (err) {
+      setError(rpcError(err))
+    } finally {
+      setBusy('')
     }
   }
 
@@ -168,14 +204,30 @@ export default function FrontDeskCashier({ session, onSignOut }) {
 
   return (
     <RoleLayout roleId="front-desk" name={session.name} nav={NAV} active={active} onNav={setActive} onSignOut={onSignOut}>
-      {error ? <p className="flash error">{error}</p> : null}
+      <ActionToast
+        busy={Boolean(busy)}
+        tone={error ? 'error' : 'ok'}
+        message={
+          busy === 'collect'
+            ? 'Collecting payment…'
+            : busy === 'checkout'
+              ? 'Checking out…'
+              : busy === 'walkin'
+                ? 'Loading walk-in…'
+                : busy === 'charge'
+                  ? 'Adding charge…'
+                  : busy === 'hours'
+                    ? 'Adding extra hours…'
+                    : error || done
+        }
+      />
       <div className="stats">
         <Stat label="Arriving" value={String(arriving.length)} hint="Still to check in" />
         <Stat label="On property" value={String(inside.length)} hint="Checked in" />
         <Stat label="Rentals out" value={String(logs.filter((item) => item.status === 'out').length)} hint="Awaiting return" />
         <Stat
           label="Open balance"
-          value={peso(arriving.reduce((sum, item) => sum + Math.max(Number(item.total_amount) - Number(item.paid_amount), 0), 0))}
+          value={peso(arriving.concat(inside).reduce((sum, item) => sum + Math.max(Number(item.override_amount ?? item.total_amount) - verifiedPaid(item), 0), 0))}
           hint="Remaining + extras"
         />
       </div>
@@ -227,8 +279,8 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                   ))}
                 </div>
                 <p className="desk-note">Full amount is due at the counter because no downpayment was collected yet.</p>
-                <button type="button" className="desk-btn" disabled={!walkName.trim()} onClick={loadWalkIn}>
-                  Load walk-in to POS
+                <button type="button" className="desk-btn" disabled={!walkName.trim() || Boolean(busy)} onClick={loadWalkIn}>
+                  {busy === 'walkin' ? 'Loading…' : 'Load walk-in to POS'}
                 </button>
               </div>
             )}
@@ -245,11 +297,48 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                   </div>
                   <span className="pill">{STATUS_LABELS[booking.status]}</span>
                 </div>
-                <Counter label="Pax on arrival" value={actualPax} min={1} onChange={setActualPax} />
-                <p className="desk-note">
-                  Excess pax × {preview.excess} · {peso(extraPaxRate)} each
-                </p>
-                <Counter label={`Extra hours · ${peso(hourRate)} / hr`} value={extraHours} onChange={setExtraHours} />
+                {preview.checkedIn ? (
+                  <p className="desk-note">Actual pax {booking.actual_pax || booking.pax} · excess {preview.excess}</p>
+                ) : (
+                  <>
+                    <Counter label="Pax on arrival" value={actualPax} min={1} onChange={setActualPax} />
+                    <p className="desk-note">
+                      Excess pax × {preview.excess} · {peso(extraPaxRate)} each
+                    </p>
+                  </>
+                )}
+                {preview.checkedIn ? (
+                  <>
+                    <p className="desk-note">Extra hours after arrival are added as charges. Scheduled checkout does not change.</p>
+                    <Counter label={`Extra hours to add · ${peso(hourRate)} / hr`} value={extraHours} onChange={setExtraHours} />
+                    <button
+                      type="button"
+                      className="desk-ghost"
+                      disabled={!extraHours || Boolean(busy)}
+                      onClick={async () => {
+                        setError('')
+                        setDone('')
+                        setBusy('hours')
+                        try {
+                          await addCharge(booking.id, `Extra hour × ${extraHours}`, extraHours * hourRate)
+                          setExtraHours(0)
+                          const rows = await reload()
+                          const next = rows.find((item) => item.id === booking.id)
+                          if (next) setSelectedId(next.id)
+                          setDone('Extra hours added to the bill.')
+                        } catch (err) {
+                          setError(rpcError(err))
+                        } finally {
+                          setBusy('')
+                        }
+                      }}
+                    >
+                      {busy === 'hours' ? 'Adding…' : 'Add extra hours'}
+                    </button>
+                  </>
+                ) : (
+                  <Counter label={`Extra hours · ${peso(hourRate)} / hr`} value={extraHours} onChange={setExtraHours} />
+                )}
                 <div className="pay-grid">
                   <input value={chargeLabel} onChange={(event) => setChargeLabel(event.target.value)} placeholder="On-site add-on" />
                   <input type="number" min="0" value={chargeAmount} onChange={(event) => setChargeAmount(event.target.value)} placeholder="Amount" />
@@ -257,7 +346,11 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                 <button
                   type="button"
                   className="desk-ghost"
+                  disabled={Boolean(busy)}
                   onClick={async () => {
+                    setError('')
+                    setDone('')
+                    setBusy('charge')
                     try {
                       await addCharge(booking.id, chargeLabel, Number(chargeAmount) || 0)
                       setChargeLabel('')
@@ -265,17 +358,20 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                       const rows = await reload()
                       const next = rows.find((item) => item.id === booking.id)
                       if (next) setSelectedId(next.id)
+                      setDone('Charge added to the bill.')
                     } catch (err) {
                       setError(rpcError(err))
+                    } finally {
+                      setBusy('')
                     }
                   }}
                 >
-                  Add charge
+                  {busy === 'charge' ? 'Adding…' : 'Add charge'}
                 </button>
                 <ul className="ticket-lines">
                   <li>
                     <span>Package remaining</span>
-                    <b>{peso(Math.max(Number(booking.override_amount ?? booking.total_amount) - Number(booking.paid_amount), 0))}</b>
+                    <b>{peso(Math.max(Number(booking.override_amount ?? booking.total_amount) - preview.paid, 0))}</b>
                   </li>
                   <li>
                     <span>On-site charges</span>
@@ -296,10 +392,25 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                     <input type="number" min="0" value={ewallet} onChange={(event) => setEwallet(event.target.value)} placeholder="0" />
                   </label>
                 </div>
-                <button type="button" className="desk-btn" disabled={booking.status === 'checked_in'} onClick={collect}>
-                  {booking.status === 'checked_in' ? 'Already checked in' : 'Collect & check in'}
-                </button>
+                {booking.status === 'checked_in' || booking.status === 'checked_out' ? (
+                  <button type="button" className="desk-btn" disabled={Boolean(busy)} onClick={checkout}>
+                    {busy === 'checkout'
+                      ? 'Collecting…'
+                      : booking.status === 'checked_out'
+                        ? 'Collect remaining & complete'
+                        : 'Collect & check out'}
+                  </button>
+                ) : (
+                  <button type="button" className="desk-btn" disabled={booking.status !== 'confirmed' || Boolean(busy)} onClick={collect}>
+                    {busy === 'collect'
+                      ? 'Collecting…'
+                      : booking.status === 'confirmed'
+                        ? 'Collect & check in'
+                        : `${STATUS_LABELS[booking.status] || booking.status} — not ready`}
+                  </button>
+                )}
                 {done ? <p className="desk-ok">{done}</p> : null}
+                {error ? <p className="desk-err">{error}</p> : null}
                 {receipt ? (
                   <button
                     type="button"

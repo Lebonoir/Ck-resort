@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getCatalog, getOccupiedDates, quoteBooking, submitBooking } from '../lib/api'
+import { getActiveBooking, getCatalog, getOccupiedDates, quoteBooking, submitBooking } from '../lib/api'
 import { peso, rpcError } from '../lib/format'
 import { TweenNumber } from '../shared/motion'
 import './booking.css'
@@ -25,7 +25,22 @@ function isoDate(year, month, day) {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
-function Calendar({ value, onChange, blocked }) {
+function manilaTodayIso() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+}
+
+function slotStartMs(iso, tour, shift, eventWhen) {
+  let hour = 8
+  if (tour === 'night' || (tour === 'event' && eventWhen === 'night')) hour = 17
+  else if (tour === 'overnight') {
+    if (String(shift || '').includes('2:00 PM')) hour = 14
+    else if (String(shift || '').includes('6:00 PM')) hour = 18
+    else hour = 9
+  }
+  return new Date(`${iso}T${String(hour).padStart(2, '0')}:00:00+08:00`).getTime()
+}
+
+function Calendar({ value, onChange, blocked, todayStarted }) {
   const start = new Date()
   const [cursor, setCursor] = useState(new Date(start.getFullYear(), start.getMonth(), 1))
   const year = cursor.getFullYear()
@@ -33,7 +48,7 @@ function Calendar({ value, onChange, blocked }) {
   const first = new Date(year, month, 1).getDay()
   const total = daysInMonth(year, month)
   const cells = Array.from({ length: first }, () => null).concat(Array.from({ length: total }, (_, index) => index + 1))
-  const today = isoDate(start.getFullYear(), start.getMonth(), start.getDate())
+  const today = manilaTodayIso()
 
   return (
     <div className="cal">
@@ -56,7 +71,7 @@ function Calendar({ value, onChange, blocked }) {
           if (!day) return <span key={`e-${index}`} />
           const iso = isoDate(year, month, day)
           const taken = blocked.has(iso)
-          const past = iso < today
+          const past = iso < today || (iso === today && todayStarted)
           const weekend = [0, 5, 6].includes(new Date(`${iso}T00:00:00`).getDay())
           return (
             <button
@@ -75,7 +90,7 @@ function Calendar({ value, onChange, blocked }) {
   )
 }
 
-export default function BookingFlow({ onDone, initialTourType = 'day' }) {
+export default function BookingFlow({ onDone, onHasActive, initialTourType = 'day' }) {
   const [step, setStep] = useState(0)
   const [catalog, setCatalog] = useState(null)
   const [occupied, setOccupied] = useState([])
@@ -99,9 +114,17 @@ export default function BookingFlow({ onDone, initialTourType = 'day' }) {
 
   useEffect(() => {
     let active = true
-    Promise.all([getCatalog(), getOccupiedDates(new Date().toISOString().slice(0, 10), '2028-12-31')])
-      .then(([nextCatalog, dates]) => {
+    Promise.all([
+      getCatalog(),
+      getOccupiedDates(new Date().toISOString().slice(0, 10), '2028-12-31'),
+      getActiveBooking(),
+    ])
+      .then(([nextCatalog, dates, stay]) => {
         if (!active) return
+        if (stay) {
+          onHasActive?.(stay)
+          return
+        }
         setCatalog(nextCatalog)
         setOccupied(Array.isArray(dates) ? dates : [])
       })
@@ -180,7 +203,15 @@ export default function BookingFlow({ onDone, initialTourType = 'day' }) {
       const created = await submitBooking(payload)
       setSent(created)
     } catch (err) {
-      setError(rpcError(err))
+      const message = rpcError(err)
+      if (/already have an active reservation/i.test(message)) {
+        const stay = await getActiveBooking()
+        if (stay) {
+          onHasActive?.(stay)
+          return
+        }
+      }
+      setError(message)
     } finally {
       setSending(false)
     }
@@ -252,7 +283,12 @@ export default function BookingFlow({ onDone, initialTourType = 'day' }) {
                 ))}
               </div>
               <div className="split">
-                <Calendar value={booking.stay_date} onChange={(stay_date) => patch({ stay_date })} blocked={blocked} />
+                <Calendar
+                  value={booking.stay_date}
+                  onChange={(stay_date) => patch({ stay_date })}
+                  blocked={blocked}
+                  todayStarted={Date.now() >= slotStartMs(manilaTodayIso(), booking.tour_type, booking.overnight_shift, booking.event_when)}
+                />
                 <div className="stack">
                   <label className="counter">
                     <span>Guest pax</span>

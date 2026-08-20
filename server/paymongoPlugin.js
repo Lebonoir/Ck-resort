@@ -116,6 +116,22 @@ async function persistAccount(userClient, payload, actorId) {
   return row
 }
 
+function startLifecycleClock(env) {
+  const supabaseUrl = env.VITE_SUPABASE_URL
+  const supabaseKey = env.VITE_SUPABASE_PUBLISHABLE_KEY
+  const secret = env.INTERNAL_API_SECRET
+  if (!supabaseUrl || !supabaseKey || !secret) return null
+  const supabase = createClient(supabaseUrl, supabaseKey)
+  const tick = () => {
+    supabase.rpc('server_advance_lifecycle', { p_secret: secret }).then(
+      () => {},
+      () => {},
+    )
+  }
+  tick()
+  return setInterval(tick, 60_000)
+}
+
 export function paymongoPlugin(env) {
   const supabaseUrl = env.VITE_SUPABASE_URL
   const supabaseKey = env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -126,6 +142,10 @@ export function paymongoPlugin(env) {
   return {
     name: 'paymongo-api',
     configureServer(server) {
+      const lifecycleTimer = startLifecycleClock(env)
+      server.httpServer?.on('close', () => {
+        if (lifecycleTimer) clearInterval(lifecycleTimer)
+      })
       server.middlewares.use(async (req, res, next) => {
         const url = req.url?.split('?')[0] || ''
         if (!url.startsWith('/api/')) {
@@ -180,6 +200,10 @@ export function paymongoPlugin(env) {
             }
             if (booking.status !== 'awaiting_downpayment') {
               send(res, 400, { error: 'This booking is not awaiting downpayment.' })
+              return
+            }
+            if (booking.payment_due_at && Date.now() > new Date(booking.payment_due_at).getTime()) {
+              send(res, 400, { error: 'The downpayment deadline has passed.' })
               return
             }
 
@@ -314,6 +338,15 @@ export function paymongoPlugin(env) {
                 p_secret: internalSecret,
                 p_checkout_id: checkoutId,
                 p_payment_id: providerPaymentId,
+              })
+            }
+            if (
+              checkoutId &&
+              ['checkout_session.payment.failed', 'payment.failed', 'checkout_session.expired'].includes(eventType)
+            ) {
+              await supabase.rpc('server_fail_downpayment', {
+                p_secret: internalSecret,
+                p_checkout_id: checkoutId,
               })
             }
             send(res, 200, { received: true })

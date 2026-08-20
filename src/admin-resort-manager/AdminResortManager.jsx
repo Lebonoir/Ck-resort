@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Panel, RoleLayout, Stat } from '../shared/RoleLayout'
+import { ActionToast, Panel, RoleLayout, Stat } from '../shared/RoleLayout'
 import {
   adminMetrics,
   adminReports,
@@ -10,13 +10,15 @@ import {
   listUsers,
   markNotificationRead,
   rejectBooking,
+  saveLifecycleSettings,
   saveRate,
+  adminLifecycleSettings,
   updateEventBand,
   updateHourRate,
   updateOvernightTier,
   updateUnitRate,
 } from '../lib/api'
-import { peso, prettyDate, rpcError, STATUS_LABELS } from '../lib/format'
+import { peso, prettyDate, prettyDateTime, rpcError, STATUS_LABELS, statusTone, verifiedPaid } from '../lib/format'
 import UsersPanel from './UsersPanel'
 import './admin.css'
 
@@ -35,6 +37,12 @@ export default function AdminResortManager({ session, onSignOut }) {
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
+  const [busy, setBusy] = useState('')
+  const [lifecycle, setLifecycle] = useState({
+    downpayment_hours: 48,
+    no_show_grace_minutes: 120,
+    no_show_downpayment_policy: 'retain',
+  })
 
   async function reload() {
     const [nextMetrics, nextBookings, nextUsers, nextCatalog, nextReports, nextNotes] = await Promise.all([
@@ -52,6 +60,12 @@ export default function AdminResortManager({ session, onSignOut }) {
     setReports(nextReports)
     setNotes(nextNotes)
     if (!selectedId && nextBookings[0]) setSelectedId(nextBookings[0].id)
+    try {
+      const settings = await adminLifecycleSettings()
+      if (settings) setLifecycle(settings)
+    } catch {
+      // Settings RPC is installed with booking_lifecycle.sql
+    }
   }
 
   useEffect(() => {
@@ -85,8 +99,19 @@ export default function AdminResortManager({ session, onSignOut }) {
       onSignOut={onSignOut}
       unread={notes.filter((row) => !row.is_read).length}
     >
-      {error ? <p className="flash error">{error}</p> : null}
-      {saved ? <p className="flash ok">{saved}</p> : null}
+      <ActionToast
+        busy={Boolean(busy)}
+        tone={error ? 'error' : 'ok'}
+        message={
+          busy === 'approve'
+            ? 'Approving reservation…'
+            : busy === 'reject'
+              ? 'Rejecting reservation…'
+              : busy === 'rates'
+                ? 'Saving…'
+                : error || saved
+        }
+      />
 
       {active !== 'Users' ? (
         <div className="stats">
@@ -111,6 +136,7 @@ export default function AdminResortManager({ session, onSignOut }) {
                     onClick={() => {
                       setSelectedId(row.id)
                       setActive('Approvals')
+                      setError('')
                     }}
                   >
                     <b>
@@ -153,15 +179,24 @@ export default function AdminResortManager({ session, onSignOut }) {
             <ul className="admin-list">
               {bookings.map((request) => (
                 <li key={request.id}>
-                  <button type="button" className={request.id === selectedId ? 'on' : ''} onClick={() => setSelectedId(request.id)}>
+                  <button
+                    type="button"
+                    className={request.id === selectedId ? 'on' : ''}
+                    onClick={() => {
+                      if (request.id !== selectedId) {
+                        setError('')
+                      }
+                      setSelectedId(request.id)
+                    }}
+                  >
                     <b>
                       {request.guest_name}
                       <small>
                         {request.reference} · {prettyDate(request.stay_date)}
                       </small>
                     </b>
-                    <span className={`pill ${request.status === 'confirmed' || request.status === 'checked_in' ? 'ok' : request.status === 'rejected' ? 'no' : 'warn'}`}>
-                      {STATUS_LABELS[request.status]}
+                    <span className={`pill ${statusTone(request.status)}`}>
+                      {STATUS_LABELS[request.status] || request.status}
                     </span>
                   </button>
                 </li>
@@ -192,8 +227,20 @@ export default function AdminResortManager({ session, onSignOut }) {
                 </div>
                 <div>
                   <span>Paid</span>
-                  <b>{peso(item.paid_amount)}</b>
+                  <b>{peso(verifiedPaid(item))}</b>
                 </div>
+                {item.payment_due_at && item.status === 'awaiting_downpayment' ? (
+                  <div>
+                    <span>Pay by</span>
+                    <b>{prettyDateTime(item.payment_due_at)}</b>
+                  </div>
+                ) : null}
+                {Number(item.credit_held) > 0 ? (
+                  <div>
+                    <span>Credit held</span>
+                    <b>{peso(item.credit_held)}</b>
+                  </div>
+                ) : null}
                 <div>
                   <span>Status</span>
                   <b>{STATUS_LABELS[item.status]}</b>
@@ -213,37 +260,50 @@ export default function AdminResortManager({ session, onSignOut }) {
                     <button
                       type="button"
                       className="book-btn"
+                      disabled={Boolean(busy)}
                       onClick={async () => {
+                        setError('')
+                        setSaved('')
+                        setBusy('approve')
                         try {
                           await approveBooking(item.id, override ? Number(override) : null)
                           setSaved(`${item.reference} approved. Guest can now pay 50%.`)
                           await reload()
                         } catch (err) {
                           setError(rpcError(err))
+                        } finally {
+                          setBusy('')
                         }
                       }}
                     >
-                      Approve
+                      {busy === 'approve' ? 'Approving…' : 'Approve'}
                     </button>
                     <button
                       type="button"
                       className="desk-ghost"
+                      disabled={Boolean(busy)}
                       onClick={async () => {
                         if (!window.confirm('Reject this booking?')) return
+                        setError('')
+                        setSaved('')
+                        setBusy('reject')
                         try {
                           await rejectBooking(item.id, reason || 'Slot not available')
                           setSaved(`${item.reference} rejected.`)
                           await reload()
                         } catch (err) {
                           setError(rpcError(err))
+                        } finally {
+                          setBusy('')
                         }
                       }}
                     >
-                      Reject
+                      {busy === 'reject' ? 'Rejecting…' : 'Reject'}
                     </button>
                   </div>
                 </>
               )}
+              {error || saved ? <p className={`flash inline-flash ${error ? 'error' : 'ok'}`}>{error || saved}</p> : null}
             </section>
           )}
         </div>
@@ -262,6 +322,68 @@ export default function AdminResortManager({ session, onSignOut }) {
       )}
 
       {active === 'Rates' && catalog && (
+        <>
+        <section className="admin-card">
+          <h3>Booking rules</h3>
+          <p className="admin-note">Downpayment and no-show handling. The paid downpayment is never turned into a remaining-balance charge.</p>
+          <div className="rate-grid">
+            <label>
+              Downpayment deadline (hours)
+              <input
+                type="number"
+                min="1"
+                max="168"
+                value={lifecycle.downpayment_hours}
+                onChange={(event) => setLifecycle((row) => ({ ...row, downpayment_hours: Number(event.target.value) || 1 }))}
+              />
+            </label>
+            <label>
+              No-show grace (minutes)
+              <input
+                type="number"
+                min="15"
+                max="720"
+                value={lifecycle.no_show_grace_minutes}
+                onChange={(event) => setLifecycle((row) => ({ ...row, no_show_grace_minutes: Number(event.target.value) || 15 }))}
+              />
+            </label>
+            <label>
+              No-show downpayment
+              <select
+                value={lifecycle.no_show_downpayment_policy}
+                onChange={(event) => setLifecycle((row) => ({ ...row, no_show_downpayment_policy: event.target.value }))}
+              >
+                <option value="retain">Retain as revenue</option>
+                <option value="credit">Hold as guest credit</option>
+              </select>
+            </label>
+          </div>
+          <button
+            type="button"
+            className="admin-save"
+            disabled={Boolean(busy)}
+            onClick={async () => {
+              setError('')
+              setSaved('')
+              setBusy('rates')
+              try {
+                const savedSettings = await saveLifecycleSettings({
+                  downpaymentHours: lifecycle.downpayment_hours,
+                  graceMinutes: lifecycle.no_show_grace_minutes,
+                  policy: lifecycle.no_show_downpayment_policy,
+                })
+                setLifecycle(savedSettings)
+                setSaved('Booking rules saved.')
+              } catch (err) {
+                setError(rpcError(err))
+              } finally {
+                setBusy('')
+              }
+            }}
+          >
+            {busy === 'rates' ? 'Saving…' : 'Save booking rules'}
+          </button>
+        </section>
         <section className="admin-card">
           <h3>Package & surcharge rates</h3>
           <div className="rate-grid">
@@ -333,6 +455,7 @@ export default function AdminResortManager({ session, onSignOut }) {
             ))}
           </div>
         </section>
+        </>
       )}
 
       {active === 'Reports' && (

@@ -4,6 +4,7 @@ import { Lightbox } from '../shared/motion'
 import BookingFlow from './BookingFlow'
 import {
   cancelBooking,
+  getActiveBooking,
   getCatalog,
   listBookings,
   listNotifications,
@@ -11,7 +12,16 @@ import {
   startDownpayment,
   verifyDownpayment,
 } from '../lib/api'
-import { peso, prettyDate, rpcError, STATUS_LABELS } from '../lib/format'
+import {
+  GUEST_ACTIVE_STATUSES,
+  paymentStatusLabel,
+  peso,
+  prettyDate,
+  prettyDateTime,
+  rpcError,
+  STATUS_LABELS,
+  stayWindowLabel,
+} from '../lib/format'
 import './booking.css'
 
 const NAV = ['Home', 'Book a stay', 'My reservations', 'Notifications']
@@ -23,6 +33,86 @@ const PACKAGES = [
   { id: 'event', label: 'Event from', hint: 'Day event · max 50 pax', rateKey: 'event' },
 ]
 
+function roomSummary(booking, catalog) {
+  if (Array.isArray(booking.rooms) && booking.rooms.length && typeof booking.rooms[0] === 'string') {
+    return booking.rooms.join(', ')
+  }
+  const ids = (booking.booking_rooms || []).map((row) => row.room_unit_id)
+  const names = (catalog?.units || [])
+    .filter((unit) => ids.includes(unit.id))
+    .map((unit) => {
+      const room = catalog?.rooms?.find((item) => item.id === unit.room_id)
+      return `${room?.name || ''} ${unit.name}`.trim()
+    })
+    .filter(Boolean)
+  return names.length ? names.join(', ') : 'None selected'
+}
+
+function addOnSummary(booking, catalog) {
+  const bits = []
+  if (Array.isArray(booking.rental_items) && booking.rental_items.length) {
+    bits.push(booking.rental_items.map((item) => `${item.name} × ${item.qty}`).join(', '))
+  } else {
+    for (const row of booking.booking_rentals || []) {
+      const item = catalog?.rentals?.find((rental) => rental.id === row.rental_id)
+      bits.push(`${item?.name || 'Rental'} × ${row.qty}`)
+    }
+  }
+  if (Number(booking.pets) > 0) bits.push(`Pets × ${booking.pets}`)
+  for (const row of booking.booking_charges || []) bits.push(row.description)
+  return bits.length ? bits.join(' · ') : 'None'
+}
+
+function ActiveStay({ booking, catalog, onView }) {
+  const total = Number(booking.override_amount ?? booking.total_amount)
+  return (
+    <div className="stay-card">
+      <p className="stay-kicker">You already have a reservation</p>
+      <h2>{booking.reference}</h2>
+      <p className="note">A new booking can be made after this one is completed, cancelled, rejected, expired, or marked no-show.</p>
+      <dl className="stay-details">
+        <div>
+          <dt>Package</dt>
+          <dd>{booking.package_label}</dd>
+        </div>
+        <div>
+          <dt>Date and time</dt>
+          <dd>
+            {prettyDate(booking.stay_date)} · {stayWindowLabel(booking)}
+          </dd>
+        </div>
+        <div>
+          <dt>Guests</dt>
+          <dd>{booking.actual_pax || booking.pax} pax</dd>
+        </div>
+        <div>
+          <dt>Rooms</dt>
+          <dd>{roomSummary(booking, catalog)}</dd>
+        </div>
+        <div>
+          <dt>Add-ons</dt>
+          <dd>{addOnSummary(booking, catalog)}</dd>
+        </div>
+        <div>
+          <dt>Total</dt>
+          <dd>{peso(total)}</dd>
+        </div>
+        <div>
+          <dt>Payment</dt>
+          <dd>{paymentStatusLabel(booking)}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{STATUS_LABELS[booking.status] || booking.status}</dd>
+        </div>
+      </dl>
+      <button type="button" className="book-btn" onClick={onView}>
+        View reservation
+      </button>
+    </div>
+  )
+}
+
 export default function CustomerGuest({ session, onSignOut }) {
   const [active, setActive] = useState('Home')
   const [initialPackage, setInitialPackage] = useState('day')
@@ -32,6 +122,8 @@ export default function CustomerGuest({ session, onSignOut }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
   const [preview, setPreview] = useState(null)
+  const [focusId, setFocusId] = useState('')
+  const [activeStay, setActiveStay] = useState(null)
 
   async function reload() {
     try {
@@ -43,8 +135,12 @@ export default function CustomerGuest({ session, onSignOut }) {
       setCatalog(nextCatalog)
       setBookings(nextBookings)
       setNotes(nextNotes)
+      const stay = nextBookings.find((row) => GUEST_ACTIVE_STATUSES.includes(row.status)) || null
+      setActiveStay(stay)
+      return nextBookings
     } catch (err) {
       setError(rpcError(err))
+      return []
     }
   }
 
@@ -52,7 +148,37 @@ export default function CustomerGuest({ session, onSignOut }) {
     reload()
   }, [])
 
-  function openBooking(tourType = 'day') {
+  useEffect(() => {
+    if (active !== 'My reservations' || !focusId) return
+    document.querySelector('.list li.focus')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [active, focusId])
+
+  const currentStay = activeStay || bookings.find((row) => GUEST_ACTIVE_STATUSES.includes(row.status))
+
+  function viewReservation(booking) {
+    setFocusId(booking.id)
+    setActive('My reservations')
+  }
+
+  async function openBooking(tourType = 'day') {
+    setError('')
+    let stay = bookings.find((row) => GUEST_ACTIVE_STATUSES.includes(row.status))
+    try {
+      const fromServer = await getActiveBooking()
+      if (fromServer) stay = fromServer
+      else if (!stay) {
+        const rows = await reload()
+        stay = rows.find((row) => GUEST_ACTIVE_STATUSES.includes(row.status))
+      }
+    } catch {
+      // SQL may not be applied yet; fall back to loaded bookings.
+    }
+    if (stay) {
+      setActiveStay(stay)
+      setActive('Book a stay')
+      return
+    }
+    setActiveStay(null)
     setInitialPackage(tourType)
     setActive('Book a stay')
   }
@@ -97,7 +223,13 @@ export default function CustomerGuest({ session, onSignOut }) {
       name={session.name}
       nav={NAV}
       active={active}
-      onNav={setActive}
+      onNav={(item) => {
+        if (item === 'Book a stay') {
+          openBooking(initialPackage)
+          return
+        }
+        setActive(item)
+      }}
       onSignOut={onSignOut}
       unread={notes.filter((item) => !item.is_read).length}
     >
@@ -162,14 +294,19 @@ export default function CustomerGuest({ session, onSignOut }) {
       )}
 
       {active === 'Book a stay' && (
-        <BookingFlow
-          key={initialPackage}
-          initialTourType={initialPackage}
-          onDone={() => {
-            setActive('My reservations')
-            reload()
-          }}
-        />
+        currentStay ? (
+          <ActiveStay booking={currentStay} catalog={catalog} onView={() => viewReservation(currentStay)} />
+        ) : (
+          <BookingFlow
+            key={initialPackage}
+            initialTourType={initialPackage}
+            onHasActive={(booking) => setActiveStay(booking)}
+            onDone={() => {
+              setActive('My reservations')
+              reload()
+            }}
+          />
+        )
       )}
 
       {active === 'My reservations' && (
@@ -177,7 +314,7 @@ export default function CustomerGuest({ session, onSignOut }) {
           {bookings.length === 0 ? <p className="note">No reservations yet.</p> : null}
           <ul className="list">
             {bookings.map((item) => (
-              <li key={item.id}>
+              <li key={item.id} className={item.id === focusId ? 'focus' : ''}>
                 <div>
                   <b>
                     {item.reference} · {item.package_label}
@@ -186,6 +323,12 @@ export default function CustomerGuest({ session, onSignOut }) {
                     {prettyDate(item.stay_date)} · {item.pax} pax · {peso(item.override_amount || item.total_amount)}
                   </small>
                   {item.rejection_reason ? <small>{item.rejection_reason}</small> : null}
+                  {item.status === 'awaiting_downpayment' && item.payment_due_at ? (
+                    <small>Pay by {prettyDateTime(item.payment_due_at)}</small>
+                  ) : null}
+                  {item.status === 'no_show' && Number(item.credit_held) > 0 ? (
+                    <small>Downpayment held as credit: {peso(item.credit_held)}</small>
+                  ) : null}
                   {item.status === 'awaiting_downpayment' ? (
                     <div className="action-row">
                       <button type="button" className="book-btn" disabled={busy === item.id} onClick={() => pay(item)}>

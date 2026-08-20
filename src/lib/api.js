@@ -65,11 +65,32 @@ export async function submitBooking(payload) {
   return rpc('submit_booking', { payload })
 }
 
+export async function getActiveBooking() {
+  try {
+    return await rpc('guest_active_booking')
+  } catch {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return null
+      return await rpc('guest_active_booking', { p_guest: user.id })
+    } catch {
+      return null
+    }
+  }
+}
+
 export async function createWalkIn(payload) {
   return rpc('create_walk_in', { payload })
 }
 
 export async function listBookings() {
+  try {
+    await supabase.rpc('advance_booking_lifecycle')
+  } catch {
+    // Lifecycle SQL may not be applied yet.
+  }
   const { data, error } = await supabase
     .from('bookings')
     .select('*, booking_rooms(*), booking_rentals(*), booking_charges(*), payments(*)')
@@ -119,6 +140,26 @@ export async function checkInBooking(id, { actualPax, extraHours, cash, ewallet 
     p_extra_hours: extraHours,
     p_cash: cash,
     p_ewallet: ewallet,
+  })
+}
+
+export async function checkOutBooking(id, { cash, ewallet }) {
+  return rpc('check_out_booking', {
+    p_id: id,
+    p_cash: cash,
+    p_ewallet: ewallet,
+  })
+}
+
+export async function adminLifecycleSettings() {
+  return rpc('admin_lifecycle_settings')
+}
+
+export async function saveLifecycleSettings({ downpaymentHours, graceMinutes, policy }) {
+  return rpc('admin_save_lifecycle_settings', {
+    p_downpayment_hours: downpaymentHours,
+    p_grace_minutes: graceMinutes,
+    p_policy: policy,
   })
 }
 

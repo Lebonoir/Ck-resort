@@ -2,6 +2,17 @@ import { ROLE_LABELS, ROLE_SHORT } from '../lib/format'
 import { CountUp } from './motion'
 import './workspace.css'
 
+export function ActionToast({ message, tone = 'ok', busy = false }) {
+  if (!message && !busy) return null
+
+  return (
+    <div className={`action-toast ${busy ? 'busy' : tone}`} role="status" aria-live="polite">
+      {busy ? <span className="action-toast-dot" aria-hidden="true" /> : null}
+      <p>{busy && !message ? 'Working…' : message}</p>
+    </div>
+  )
+}
+
 const ICONS = {
   Home: HomeIcon,
   'Book a stay': CalendarIcon,

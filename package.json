@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "db:setup": "node scripts/apply-schema.mjs"
+    "db:setup": "node scripts/apply-schema.mjs",
+    "db:lifecycle": "node scripts/apply-lifecycle.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
