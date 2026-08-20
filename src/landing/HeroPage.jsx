@@ -24,7 +24,7 @@ function initials(name) {
     .toUpperCase()
 }
 
-export default function HeroPage({ onBook, onStaff }) {
+export default function HeroPage({ onBook }) {
   const [scrolled, setScrolled] = useState(false)
   const featured = REVIEWS.find((review) => review.featured) || REVIEWS[0]
 
@@ -54,9 +54,6 @@ export default function HeroPage({ onBook, onStaff }) {
         </nav>
         <div className="hero-nav-actions">
           <a href="tel:09209502510">0920 950 2510</a>
-          <button type="button" className="texty" onClick={onStaff}>
-            Staff
-          </button>
           <button type="button" className="book-now" onClick={onBook}>
             Book now
           </button>

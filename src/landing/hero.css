@@ -471,7 +471,7 @@
 
 .close-band {
   position: relative;
-  margin: 40px 32px 0;
+  margin: 40px 32px 36px;
   min-height: 420px;
   border-radius: 28px;
   overflow: hidden;
@@ -515,10 +515,10 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  padding: 28px 32px 36px;
+  padding: 32px 32px 40px;
   background: #07192e;
   color: #eef8fc;
-  margin-top: 0;
+  margin-top: 8px;
 }
 
 .hero-foot p {

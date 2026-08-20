@@ -261,7 +261,7 @@
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 28px;
-  padding: 20px 22px 18px;
+  padding: 20px 22px 28px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
 }
@@ -604,6 +604,29 @@ form,
 
 .form-card .back {
   margin-bottom: 10px;
+}
+
+.icon-back {
+  width: 40px;
+  height: 40px;
+  margin: 0 0 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  background: #f7fbfc;
+  color: var(--navy);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.icon-back svg {
+  width: 20px;
+  height: 20px;
+}
+
+.icon-back:hover {
+  border-color: var(--aqua);
+  background: #eefafc;
 }
 
 .otp-step .back {

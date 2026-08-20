@@ -95,7 +95,7 @@ function Gate() {
             {error}
           </p>
         ) : null}
-        <HeroPage onBook={() => setShowAuth(true)} onStaff={() => setShowAuth(true)} />
+        <HeroPage onBook={() => setShowAuth(true)} />
       </>
     )
   }

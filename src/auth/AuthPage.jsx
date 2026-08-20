@@ -360,13 +360,18 @@ export default function AuthPage({ onBack, recovery = false }) {
                 <img src="/logo.png" alt="CK Resort & Event Place" />
               </div>
               {onBack ? (
-                <button type="button" className="text-link back" onClick={onBack}>
-                  ← Back to home
+                <button type="button" className="icon-back" onClick={onBack} aria-label="Back to home">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M15.5 5.5 9 12l6.5 6.5-1.4 1.4L6.2 12l7.9-7.9Z"
+                    />
+                  </svg>
                 </button>
               ) : null}
               <div className="mode-switch" role="tablist">
                 <button type="button" className={mode === 'login' || mode === 'forgot' ? 'active' : ''} onClick={() => resetFlow('login')}>
-                  Log in
+                  Sign in
                 </button>
                 <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => resetFlow('signup')}>
                   Sign up
@@ -524,7 +529,7 @@ export default function AuthPage({ onBack, recovery = false }) {
                       ? 'Create account'
                       : mode === 'forgot'
                         ? 'Send reset link'
-                        : 'Log in'}
+                        : 'Sign in'}
                 </button>
               </form>
             </>
