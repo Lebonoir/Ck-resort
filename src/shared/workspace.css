@@ -198,6 +198,23 @@
   border-radius: 18px;
   padding: 16px 18px;
   box-shadow: 0 10px 24px rgba(7, 25, 46, 0.06);
+  animation: rowIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.stat:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(7, 25, 46, 0.1), 0 0 0 4px rgba(62, 198, 224, 0.1);
+}
+
+.stats .stat:nth-child(2) {
+  animation-delay: 0.06s;
+}
+.stats .stat:nth-child(3) {
+  animation-delay: 0.12s;
+}
+.stats .stat:nth-child(4) {
+  animation-delay: 0.18s;
 }
 
 button.stat {
@@ -272,12 +289,15 @@ button.stat.clickable:focus-visible {
   text-transform: uppercase;
 }
 
-.stat strong {
-  font-size: 28px;
+.stat strong,
+.stat strong .count-up {
+  font-size: 36px;
+  line-height: 1.05;
   color: var(--navy);
+  font-weight: 700;
 }
 
-.stat span {
+.stat > span {
   display: block;
   margin-top: 4px;
   color: var(--muted);
@@ -304,7 +324,20 @@ button.stat.clickable:focus-visible {
   padding: 12px;
   border-radius: 12px;
   background: #f7fbfc;
+  animation: rowIn 0.4s ease both;
+  transition: transform 0.25s ease, background 0.25s ease;
 }
+
+.list li:hover {
+  transform: translateX(3px);
+  background: #eef8fb;
+}
+
+.list li:nth-child(2) { animation-delay: 0.04s; }
+.list li:nth-child(3) { animation-delay: 0.08s; }
+.list li:nth-child(4) { animation-delay: 0.12s; }
+.list li:nth-child(5) { animation-delay: 0.16s; }
+.list li:nth-child(6) { animation-delay: 0.2s; }
 
 .list b {
   display: block;
@@ -331,6 +364,7 @@ button.stat.clickable:focus-visible {
   padding: 12px 14px;
   border-radius: 12px;
   font-weight: 600;
+  animation: toastIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .flash.error {

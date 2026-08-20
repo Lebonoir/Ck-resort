@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Stat } from '../shared/RoleLayout'
 import { adminCreateAccount, adminDeleteAccount, adminUpdateAccount } from '../lib/api'
 import { ROLE_LABELS, rpcError } from '../lib/format'
@@ -21,12 +21,21 @@ const EMPTY_CREATE = {
 }
 
 function Modal({ title, onClose, children }) {
+  const dialogRef = useRef(null)
+
   useEffect(() => {
     function onKey(event) {
       if (event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const focusable = dialogRef.current?.querySelector('input, button, select, textarea')
+    focusable?.focus()
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previous
+    }
   }, [onClose])
 
   return (
@@ -36,7 +45,7 @@ function Modal({ title, onClose, children }) {
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="account-modal" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
+      <div className="account-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
         <div className="account-modal-head">
           <h3 id="account-modal-title">{title}</h3>
           <button type="button" className="desk-ghost" onClick={onClose}>

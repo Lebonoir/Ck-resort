@@ -1,4 +1,5 @@
 import { ROLE_LABELS, ROLE_SHORT } from '../lib/format'
+import { CountUp } from './motion'
 import './workspace.css'
 
 const ICONS = {
@@ -157,7 +158,9 @@ export function Stat({ label, value, hint, onClick }) {
   const inner = (
     <>
       <p>{label}</p>
-      <strong>{value}</strong>
+      <strong>
+        <CountUp value={value} />
+      </strong>
       {hint ? <span>{hint}</span> : null}
     </>
   )

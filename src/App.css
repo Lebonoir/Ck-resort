@@ -30,6 +30,7 @@
   padding: 28px 26px 22px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
+  animation: modalIn 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .status-kicker {

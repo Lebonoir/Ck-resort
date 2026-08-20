@@ -268,9 +268,11 @@
   inset: 0;
   z-index: 40;
   background: rgba(7, 25, 46, 0.46);
+  backdrop-filter: blur(10px);
   display: grid;
   place-items: center;
   padding: 20px;
+  animation: overlayIn 0.28s ease;
 }
 
 .account-modal {
@@ -283,6 +285,7 @@
   box-shadow: 0 24px 60px rgba(7, 25, 46, 0.22);
   display: grid;
   gap: 12px;
+  animation: modalIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .account-modal-head {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getCatalog, getOccupiedDates, quoteBooking, submitBooking } from '../lib/api'
 import { peso, rpcError } from '../lib/format'
+import { TweenNumber } from '../shared/motion'
 import './booking.css'
 
 const STEPS = ['Package & date', 'Rooms', 'Rentals', 'Review']
@@ -62,7 +63,7 @@ function Calendar({ value, onChange, blocked }) {
               key={iso}
               type="button"
               disabled={taken || past}
-              className={`${value === iso ? 'picked' : ''} ${weekend ? 'wk' : ''} ${taken || past ? 'busy' : ''}`}
+              className={`${value === iso ? 'picked' : ''} ${weekend ? 'wk' : ''} ${taken ? 'busy' : ''} ${past ? 'past' : ''}`}
               onClick={() => onChange(iso)}
             >
               {day}
@@ -185,7 +186,17 @@ export default function BookingFlow({ onDone, initialTourType = 'day' }) {
     }
   }
 
-  if (!catalog) return <p className="note">{error || 'Loading packages…'}</p>
+  if (!catalog) {
+    return (
+      <div className="skeleton-page">
+        <div className="skeleton skeleton-card" />
+        <div className="book-grid">
+          <div className="skeleton skeleton-card" style={{ minHeight: 280 }} />
+          <div className="skeleton skeleton-card" style={{ minHeight: 280 }} />
+        </div>
+      </div>
+    )
+  }
 
   if (sent) {
     return (
@@ -215,7 +226,8 @@ export default function BookingFlow({ onDone, initialTourType = 'day' }) {
         {STEPS.map((label, index) => (
           <li key={label} className={index === step ? 'on' : index < step ? 'done' : ''}>
             <button type="button" onClick={() => index < step && setStep(index)}>
-              {index + 1}. {label}
+              <small>{String(index + 1).padStart(2, '0')}</small>
+              {label}
             </button>
           </li>
         ))}
@@ -223,6 +235,7 @@ export default function BookingFlow({ onDone, initialTourType = 'day' }) {
 
       <div className="book-grid">
         <div className="book-main">
+          <div className="book-pane" key={step}>
           {step === 0 && (
             <>
               <div className="chip-row">
@@ -398,6 +411,7 @@ export default function BookingFlow({ onDone, initialTourType = 'day' }) {
           )}
 
           {error && step !== 3 ? <p className="otp-error">{error}</p> : null}
+          </div>
 
           <div className="book-nav">
             {step > 0 ? (
@@ -436,11 +450,15 @@ export default function BookingFlow({ onDone, initialTourType = 'day' }) {
           <div className="totals">
             <div>
               <span>Total</span>
-              <strong>{peso(summary.total)}</strong>
+              <strong>
+                <TweenNumber value={summary.total} format={peso} />
+              </strong>
             </div>
             <div>
               <span>50% DP after approval</span>
-              <strong>{peso(summary.downpayment)}</strong>
+              <strong>
+                <TweenNumber value={summary.downpayment} format={peso} />
+              </strong>
             </div>
           </div>
         </aside>

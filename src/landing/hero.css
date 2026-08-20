@@ -89,6 +89,7 @@
   text-transform: uppercase;
   font-size: 12px;
   box-shadow: 0 10px 24px rgba(7, 25, 46, 0.18);
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
 }
 
 .book-now:hover {
@@ -105,6 +106,14 @@
   margin-top: -78px;
   min-height: 100svh;
   color: #fff;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hero-photo-wrap {
+  position: absolute;
+  inset: -6% 0 0;
+  will-change: transform;
 }
 
 .hero-photo {
@@ -117,22 +126,62 @@
   animation: ken 28s ease-in-out infinite alternate;
 }
 
+.hero-ambient {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(62, 198, 224, 0.28), transparent 36%),
+    radial-gradient(circle at 82% 70%, rgba(126, 232, 247, 0.16), transparent 40%);
+  animation: ambientDrift 18s ease-in-out infinite;
+}
+
 .hero-veil {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background:
     linear-gradient(180deg, rgba(4, 17, 31, 0.55) 0%, rgba(4, 17, 31, 0.12) 38%, rgba(4, 17, 31, 0.2) 58%, rgba(4, 17, 31, 0.88) 100%);
 }
 
 .hero-overlay {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 120px 32px 140px;
+  padding: 120px 32px 168px;
   max-width: 980px;
+  will-change: transform;
+}
+
+.hero-copy-in {
+  animation: heroIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-copy-in.d1 {
+  animation-delay: 0.12s;
+}
+
+.hero-copy-in.d2 {
+  animation-delay: 0.22s;
+}
+
+.hero-copy-in.d3 {
+  animation-delay: 0.32s;
+}
+
+@keyframes heroIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .hero-kicker {
@@ -191,7 +240,7 @@
   left: 32px;
   right: 32px;
   bottom: 28px;
-  z-index: 2;
+  z-index: 3;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1px;
@@ -203,25 +252,39 @@
 }
 
 .hero-stats div {
-  padding: 16px 18px;
-  background: rgba(7, 25, 46, 0.28);
+  padding: 18px 20px;
+  background: rgba(7, 25, 46, 0.42);
 }
 
-.hero-stats b {
-  display: block;
+.hero-stats b,
+.hero-stats b .count-up {
+  display: inline;
   font-family: var(--serif);
-  font-size: 28px;
+  font-size: clamp(36px, 4vw, 52px);
   line-height: 1;
+  font-weight: 600;
+  color: #fff;
 }
 
-.hero-stats span {
-  color: rgba(255, 255, 255, 0.72);
+.hero-stats b small {
+  font-size: 0.45em;
+  margin-left: 4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hero-stats > div > span {
+  display: block;
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.78);
   font-size: 12px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .hero-block {
+  position: relative;
+  z-index: 4;
   padding: 88px 32px 40px;
   max-width: 1200px;
   margin: 0 auto;
@@ -262,6 +325,11 @@
 .fact-list div {
   padding-top: 14px;
   border-top: 1px solid rgba(14, 50, 78, 0.12);
+  transition: transform 0.35s ease, padding-left 0.35s ease;
+}
+
+.fact-list div:hover {
+  transform: translateX(4px);
 }
 
 .fact-list dt {
@@ -270,11 +338,50 @@
   text-transform: uppercase;
   color: #1a4e73;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fact-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e8f7fb;
+  color: #1a4e73;
+  font-size: 11px;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fact-list div:hover .fact-icon {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .fact-list dd {
   margin: 4px 0 0;
   color: #07192e;
+  position: relative;
+  display: inline-block;
+}
+
+.fact-list dd::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  width: 0;
+  height: 1px;
+  background: #3ec6e0;
+  transition: width 0.35s ease;
+}
+
+.fact-list div:hover dd::after {
+  width: 100%;
 }
 
 .pull-quote {
@@ -284,6 +391,45 @@
   color: #eef8fc;
   border-radius: 28px;
   box-shadow: 0 30px 60px rgba(7, 25, 46, 0.18);
+  position: relative;
+  overflow: hidden;
+  animation: floatSoft 7s ease-in-out infinite;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.pull-quote:hover {
+  transform: translateY(-6px) scale(1.015);
+  box-shadow: 0 36px 70px rgba(7, 25, 46, 0.28), 0 0 40px rgba(62, 198, 224, 0.18);
+}
+
+.quote-glow {
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(circle at 30% 20%, rgba(62, 198, 224, 0.28), transparent 42%);
+  animation: glowPulse 6.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.quote-sheen {
+  position: absolute;
+  top: -40%;
+  left: 0;
+  width: 42%;
+  height: 180%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: sweep 7.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.pull-quote p,
+.pull-quote cite,
+.pull-quote .stars {
+  position: relative;
+  z-index: 1;
+}
+
+.pull-quote .stars {
+  animation: starShimmer 3.8s ease-in-out infinite;
 }
 
 .pull-quote p {
@@ -324,6 +470,12 @@
   display: grid;
   gap: 8px;
   box-shadow: 0 16px 40px rgba(7, 25, 46, 0.05);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.amenity-row li:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 44px rgba(7, 25, 46, 0.1);
 }
 
 .amenity-row b {
@@ -358,12 +510,24 @@
   grid-row: 1 / 3;
 }
 
+.gallery-hit {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: #10243a;
+  cursor: zoom-in;
+}
+
 .bento img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.8s ease;
+  transform: scale(1.02);
+  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.6s ease;
+  opacity: 0.96;
 }
 
 .bento .wide img {
@@ -371,7 +535,8 @@
 }
 
 .bento figure:hover img {
-  transform: scale(1.06);
+  transform: scale(1.08);
+  opacity: 1;
 }
 
 .bento figcaption {
@@ -419,6 +584,12 @@
   border-radius: 20px;
   padding: 18px;
   box-shadow: 0 16px 40px rgba(7, 25, 46, 0.05);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.review-grid article:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(7, 25, 46, 0.1);
 }
 
 .review-grid .featured {
@@ -533,6 +704,23 @@
   }
   to {
     transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy-in,
+  .hero-photo,
+  .hero-ambient,
+  .pull-quote,
+  .pull-quote .stars,
+  .quote-glow,
+  .quote-sheen {
+    animation: none !important;
+  }
+
+  .hero-photo-wrap,
+  .hero-overlay {
+    transform: none !important;
   }
 }
 

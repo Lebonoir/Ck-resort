@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Panel, RoleLayout, Stat } from '../shared/RoleLayout'
+import { Lightbox } from '../shared/motion'
 import BookingFlow from './BookingFlow'
 import {
   cancelBooking,
@@ -30,6 +31,7 @@ export default function CustomerGuest({ session, onSignOut }) {
   const [notes, setNotes] = useState([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
+  const [preview, setPreview] = useState(null)
 
   async function reload() {
     try {
@@ -89,6 +91,7 @@ export default function CustomerGuest({ session, onSignOut }) {
   }
 
   return (
+    <>
     <RoleLayout
       roleId="guest"
       name={session.name}
@@ -126,8 +129,32 @@ export default function CustomerGuest({ session, onSignOut }) {
             <Panel title="Rates" className="rates-panel">
               <div className="rates-glow" aria-hidden="true" />
               <div className="flyers">
-                <img src="/flyers/packages.png" alt="CK Resort packages and prices" />
-                <img src="/flyers/charges.png" alt="CK Resort other charges and catering" />
+                <button
+                  type="button"
+                  className="flyer-hit"
+                  onClick={() =>
+                    setPreview({
+                      src: '/flyers/packages.png',
+                      alt: 'CK Resort packages and prices',
+                      caption: 'Packages & rates',
+                    })
+                  }
+                >
+                  <img src="/flyers/packages.png" alt="CK Resort packages and prices" />
+                </button>
+                <button
+                  type="button"
+                  className="flyer-hit"
+                  onClick={() =>
+                    setPreview({
+                      src: '/flyers/charges.png',
+                      alt: 'CK Resort other charges and catering',
+                      caption: 'Other charges & catering',
+                    })
+                  }
+                >
+                  <img src="/flyers/charges.png" alt="CK Resort other charges and catering" />
+                </button>
               </div>
             </Panel>
           </div>
@@ -224,5 +251,14 @@ export default function CustomerGuest({ session, onSignOut }) {
         </Panel>
       )}
     </RoleLayout>
+    {preview ? (
+      <Lightbox
+        src={preview.src}
+        alt={preview.alt}
+        caption={preview.caption}
+        onClose={() => setPreview(null)}
+      />
+    ) : null}
+    </>
   )
 }

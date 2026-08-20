@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CountUp, Lightbox, Reveal, prefersReducedMotion } from '../shared/motion'
 import { REVIEWS } from './reviews'
 import './hero.css'
 
@@ -9,6 +10,12 @@ const AMENITIES = [
   { title: 'Bring a feast', text: 'Cafe is open, and outside food is welcome. Tie-up caterers too.' },
   { title: 'Pets allowed', text: 'A homey, pet-friendly escape a few kilometers from the city.' },
   { title: 'Rice fields beyond', text: 'Step outside for paddies and a view of Mt. Arayat.' },
+]
+
+const GALLERY = [
+  { src: '/hero/pool.png', alt: 'Main pool, circular tub, wooden pergola, and A-frame cottage', caption: 'Pool deck · pergola · A-frame cottage', className: 'wide' },
+  { src: '/hero/guests.png', alt: 'Guests on the A-frame balcony', caption: 'Gatherings on the balcony', className: 'tall' },
+  { src: '/hero/aerial.png', alt: 'Aerial of pool and surrounding rice fields', caption: 'Rice fields at the edge', className: '' },
 ]
 
 function Stars({ count = 5 }) {
@@ -26,15 +33,25 @@ function initials(name) {
 
 export default function HeroPage({ onBook }) {
   const [scrolled, setScrolled] = useState(false)
+  const [offset, setOffset] = useState(0)
+  const [preview, setPreview] = useState(null)
   const featured = REVIEWS.find((review) => review.featured) || REVIEWS[0]
 
   useEffect(() => {
+    let frame = 0
     function onScroll() {
-      setScrolled(window.scrollY > 24)
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        setScrolled(window.scrollY > 24)
+        setOffset(prefersReducedMotion() ? 0 : window.scrollY)
+      })
     }
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      cancelAnimationFrame(frame)
+    }
   }, [])
 
   return (
@@ -61,16 +78,19 @@ export default function HeroPage({ onBook }) {
       </header>
 
       <section className="hero-banner">
-        <img className="hero-photo" src="/hero/hero-night.png" alt="CK Resort A-frame cottage and pool at night" />
+        <div className="hero-ambient" aria-hidden="true" />
+        <div className="hero-photo-wrap" style={{ transform: `translate3d(0, ${offset * 0.22}px, 0)` }}>
+          <img className="hero-photo" src="/hero/hero-night.png" alt="CK Resort A-frame cottage and pool at night" />
+        </div>
         <div className="hero-veil" />
-        <div className="hero-overlay">
-          <p className="hero-kicker">San Simon · Pampanga</p>
-          <h1>
+        <div className="hero-overlay" style={{ transform: `translate3d(0, ${offset * 0.08}px, 0)` }}>
+          <p className="hero-kicker hero-copy-in">San Simon · Pampanga</p>
+          <h1 className="hero-copy-in d1">
             Unwind by the water,
             <em> a few kilometers from the city.</em>
           </h1>
-          <p className="hero-where">CK Resort & Events Place · St. Duyong, San Simon, 2015</p>
-          <div className="hero-cta-row">
+          <p className="hero-where hero-copy-in d2">CK Resort & Events Place · St. Duyong, San Simon, 2015</p>
+          <div className="hero-cta-row hero-copy-in d3">
             <button type="button" className="book-now big" onClick={onBook}>
               Book your stay
             </button>
@@ -81,19 +101,28 @@ export default function HeroPage({ onBook }) {
         </div>
         <div className="hero-stats">
           <div>
-            <b>4.4</b>
+            <b>
+              <CountUp value="4.4" />
+            </b>
             <span>Google rating</span>
           </div>
           <div>
-            <b>16</b>
+            <b>
+              <CountUp value="16" />
+            </b>
             <span>reviews</span>
           </div>
           <div>
-            <b>3</b>
+            <b>
+              <CountUp value="3" />
+            </b>
             <span>pools</span>
           </div>
           <div>
-            <b>22hr</b>
+            <b>
+              <CountUp value="22" />
+              <small>hr</small>
+            </b>
             <span>overnight stays</span>
           </div>
         </div>
@@ -101,7 +130,7 @@ export default function HeroPage({ onBook }) {
 
       <section className="hero-block stay" id="stay">
         <div className="stay-grid">
-          <div className="hero-copy">
+          <Reveal className="hero-copy">
             <p className="hero-kicker dark">The place</p>
             <h2>A homey A-frame, three pools, and rice fields at the fence.</h2>
             <p>
@@ -111,64 +140,82 @@ export default function HeroPage({ onBook }) {
             </p>
             <dl className="fact-list">
               <div>
-                <dt>Find us</dt>
+                <dt>
+                  <span className="fact-icon" aria-hidden="true">
+                    ⌖
+                  </span>
+                  Find us
+                </dt>
                 <dd>St. Duyong, San Simon, 2015 Pampanga, Philippines</dd>
               </div>
               <div>
-                <dt>Call</dt>
+                <dt>
+                  <span className="fact-icon" aria-hidden="true">
+                    ☎
+                  </span>
+                  Call
+                </dt>
                 <dd>0920 950 2510 · 0968 880 3722</dd>
               </div>
               <div>
-                <dt>Guests mention</dt>
+                <dt>
+                  <span className="fact-icon" aria-hidden="true">
+                    ✦
+                  </span>
+                  Guests mention
+                </dt>
                 <dd>Accommodating staff · Ambiance · Pet friendly</dd>
               </div>
             </dl>
-          </div>
-          <blockquote className="pull-quote">
-            <Stars />
-            <p>“{featured.text}”</p>
-            <cite>{featured.name}</cite>
-          </blockquote>
+          </Reveal>
+          <Reveal variant="right" delay={80}>
+            <blockquote className="pull-quote">
+              <span className="quote-glow" aria-hidden="true" />
+              <span className="quote-sheen" aria-hidden="true" />
+              <Stars />
+              <p>“{featured.text}”</p>
+              <cite>{featured.name}</cite>
+            </blockquote>
+          </Reveal>
         </div>
         <ul className="amenity-row">
-          {AMENITIES.map((item) => (
-            <li key={item.title}>
+          {AMENITIES.map((item, index) => (
+            <Reveal as="li" variant="scale" delay={index * 70} key={item.title}>
               <b>{item.title}</b>
               <span>{item.text}</span>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </section>
 
       <section className="bento" id="gallery">
-        <figure className="wide">
-          <img src="/hero/pool.png" alt="Main pool, circular tub, wooden pergola, and A-frame cottage" />
-          <figcaption>Pool deck · pergola · A-frame cottage</figcaption>
-        </figure>
-        <figure className="tall">
-          <img src="/hero/guests.png" alt="Guests on the A-frame balcony" />
-          <figcaption>Gatherings on the balcony</figcaption>
-        </figure>
-        <figure>
-          <img src="/hero/aerial.png" alt="Aerial of pool and surrounding rice fields" />
-          <figcaption>Rice fields at the edge</figcaption>
-        </figure>
+        {GALLERY.map((item, index) => (
+          <Reveal as="figure" variant="scale" delay={index * 80} className={item.className} key={item.src}>
+            <button type="button" className="gallery-hit" onClick={() => setPreview(item)} aria-label={`View ${item.caption}`}>
+              <img src={item.src} alt={item.alt} />
+            </button>
+            <figcaption>{item.caption}</figcaption>
+          </Reveal>
+        ))}
       </section>
 
       <section className="hero-block reviews-wrap" id="reviews">
-        <div className="reviews-head">
+        <Reveal className="reviews-head">
           <div className="hero-copy">
             <p className="hero-kicker dark">Guests say</p>
             <h2>Most relevant stories from people who stayed.</h2>
           </div>
           <p className="rating-chip">
             <Stars />
-            <b>4.4</b> from 16 Google reviews
+            <b>
+              <CountUp value="4.4" />
+            </b>{' '}
+            from 16 Google reviews
           </p>
-        </div>
+        </Reveal>
         <div className="review-grid">
-          {REVIEWS.map((review) => (
-            <article key={review.name} className={review.featured ? 'featured' : ''}>
+          {REVIEWS.map((review, index) => (
+            <Reveal as="article" variant="scale" delay={index * 60} key={review.name} className={review.featured ? 'featured' : ''}>
               <header>
                 <span className="avatar">{initials(review.name)}</span>
                 <div>
@@ -179,12 +226,12 @@ export default function HeroPage({ onBook }) {
                 </div>
               </header>
               <p>{review.text}</p>
-            </article>
+            </Reveal>
           ))}
         </div>
       </section>
 
-      <section className="close-band">
+      <Reveal as="section" className="close-band" variant="up">
         <img src="/hero/pool.png" alt="" />
         <div>
           <p className="hero-kicker">Your date is waiting</p>
@@ -194,7 +241,7 @@ export default function HeroPage({ onBook }) {
             Book now
           </button>
         </div>
-      </section>
+      </Reveal>
 
       <footer className="hero-foot">
         <div>
@@ -209,6 +256,8 @@ export default function HeroPage({ onBook }) {
           Book now
         </button>
       </footer>
+
+      {preview ? <Lightbox src={preview.src} alt={preview.alt} caption={preview.caption} onClose={() => setPreview(null)} /> : null}
     </div>
   )
 }
