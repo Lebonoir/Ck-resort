@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { RoleLayout, Stat } from '../shared/RoleLayout'
+import { ActionToast, RoleLayout, Stat } from '../shared/RoleLayout'
 import RentalDispatch from '../shared/RentalDispatch'
 import {
   dispatchRental,
@@ -37,6 +37,8 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
   const [filter, setFilter] = useState('All')
   const [now, setNow] = useState(Date.now())
   const [error, setError] = useState('')
+  const [saved, setSaved] = useState('')
+  const [busy, setBusy] = useState('')
 
   async function reload() {
     const [units, nextBookings, nextCatalog, nextLogs] = await Promise.all([
@@ -60,6 +62,50 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
     return () => clearInterval(timer)
   }, [])
 
+  async function changeRoom(id, status, label) {
+    setError('')
+    setSaved('')
+    setBusy(id)
+    try {
+      await setRoomStatus(id, status)
+      await reload()
+      setSaved(label)
+    } catch (err) {
+      setError(rpcError(err))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function handleDispatch(payload) {
+    setError('')
+    setSaved('')
+    setBusy('dispatch')
+    try {
+      await dispatchRental(payload.guestId, payload.itemId, payload.qty)
+      await reload()
+      setSaved('Rental logged as out.')
+    } catch (err) {
+      setError(rpcError(err))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function handleReturn(id) {
+    setError('')
+    setSaved('')
+    setBusy(`return:${id}`)
+    try {
+      await returnRental(id)
+      await reload()
+      setSaved('Rental marked returned.')
+    } catch (err) {
+      setError(rpcError(err))
+    } finally {
+      setBusy('')
+    }
+  }
   const occupied = rooms.filter((room) => room.status === 'occupied').length
   const cleaning = rooms.filter((room) => room.status === 'cleaning').length
   const ready = rooms.filter((room) => room.status === 'available').length
@@ -68,7 +114,19 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
 
   return (
     <RoleLayout roleId="staff" name={session.name} nav={NAV} active={active} onNav={setActive} onSignOut={onSignOut}>
-      {error ? <p className="flash error">{error}</p> : null}
+      <ActionToast
+        busy={Boolean(busy)}
+        tone={error ? 'error' : 'ok'}
+        message={
+          busy === 'dispatch'
+            ? 'Logging rental…'
+            : String(busy).startsWith('return:')
+              ? 'Marking returned…'
+              : busy
+                ? 'Updating room…'
+                : error || saved
+        }
+      />
       <div className="stats">
         <Stat label="Occupied" value={String(occupied)} hint="Live stays" />
         <Stat label="Cleaning" value={String(cleaning)} hint="Turnaround" />
@@ -112,18 +170,31 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
                 </div>
                 <footer>
                   {room.status === 'occupied' && (
-                    <button type="button" onClick={() => setRoomStatus(room.id, 'cleaning').then(reload).catch((err) => setError(rpcError(err)))}>
-                      Start cleaning
+                    <button
+                      type="button"
+                      disabled={Boolean(busy)}
+                      onClick={() => changeRoom(room.id, 'cleaning', `${room.rooms?.name || 'Room'} ${room.name} · cleaning started.`)}
+                    >
+                      {busy === room.id ? 'Updating…' : 'Start cleaning'}
                     </button>
                   )}
                   {room.status === 'cleaning' && (
-                    <button type="button" onClick={() => setRoomStatus(room.id, 'available').then(reload).catch((err) => setError(rpcError(err)))}>
-                      Mark ready
+                    <button
+                      type="button"
+                      disabled={Boolean(busy)}
+                      onClick={() => changeRoom(room.id, 'available', `${room.rooms?.name || 'Room'} ${room.name} · marked ready.`)}
+                    >
+                      {busy === room.id ? 'Updating…' : 'Mark ready'}
                     </button>
                   )}
                   {room.status === 'available' && (
-                    <button type="button" className="soft" onClick={() => setRoomStatus(room.id, 'occupied').then(reload).catch((err) => setError(rpcError(err)))}>
-                      Mark occupied
+                    <button
+                      type="button"
+                      className="soft"
+                      disabled={Boolean(busy)}
+                      onClick={() => changeRoom(room.id, 'occupied', `${room.rooms?.name || 'Room'} ${room.name} · marked occupied.`)}
+                    >
+                      {busy === room.id ? 'Updating…' : 'Mark occupied'}
                     </button>
                   )}
                 </footer>
@@ -138,14 +209,8 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
           guests={inside}
           rentals={catalog?.rentals || []}
           logs={logs}
-          onDispatch={async ({ guestId, itemId, qty }) => {
-            await dispatchRental(guestId, itemId, qty)
-            await reload()
-          }}
-          onReturn={async (id) => {
-            await returnRental(id)
-            await reload()
-          }}
+          onDispatch={handleDispatch}
+          onReturn={handleReturn}
         />
       )}
     </RoleLayout>

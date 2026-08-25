@@ -1001,6 +1001,59 @@ begin
 end;
 $$;
 
+create or replace function public.booking_paid_total(p_id uuid)
+returns numeric
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(sum(amount), 0)
+  from public.payments
+  where booking_id = p_id and status = 'paid'
+$$;
+
+create or replace function public.sync_paid_amount(p_id uuid)
+returns numeric
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_paid numeric;
+begin
+  v_paid := public.booking_paid_total(p_id);
+  update public.bookings set paid_amount = v_paid where id = p_id;
+  return v_paid;
+end;
+$$;
+
+create or replace function public.booking_final_bill(p_id uuid)
+returns numeric
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  b public.bookings;
+  v_charges numeric := 0;
+begin
+  select * into b from public.bookings where id = p_id;
+  if not found then
+    return 0;
+  end if;
+  select coalesce(sum(bc.amount), 0) into v_charges from public.booking_charges bc where bc.booking_id = p_id;
+  return coalesce(b.override_amount, b.total_amount)
+    + v_charges
+    + b.excess_pax * case
+        when b.tour_type = 'overnight' then public.rate_amount('extra_pax_overnight')
+        else public.rate_amount('extra_pax_tour')
+      end
+    + b.checkin_extra_hours * public.rate_amount('extra_hour');
+end;
+$$;
+
 create or replace function public.booking_amount_due(p_id uuid)
 returns numeric
 language plpgsql
@@ -1010,18 +1063,59 @@ set search_path = public
 as $$
 declare
   b public.bookings;
-  charges numeric := 0;
-  excess numeric := 0;
-  hours_fee numeric := 0;
-  bill numeric;
 begin
   select * into b from public.bookings where id = p_id;
-  if not found then return 0; end if;
-  select coalesce(sum(amount), 0) into charges from public.booking_charges where booking_id = p_id;
-  bill := coalesce(b.override_amount, b.total_amount);
-  excess := b.excess_pax * case when b.tour_type = 'overnight' then public.rate_amount('extra_pax_overnight') else public.rate_amount('extra_pax_tour') end;
-  hours_fee := b.checkin_extra_hours * public.rate_amount('extra_hour');
-  return greatest(bill - b.paid_amount + charges + excess + hours_fee, 0);
+  if not found then
+    return 0;
+  end if;
+  if b.status in ('expired', 'no_show', 'cancelled', 'rejected') then
+    return 0;
+  end if;
+  return greatest(public.booking_final_bill(p_id) - public.booking_paid_total(p_id), 0);
+end;
+$$;
+
+create or replace function public.record_collected_payment(
+  p_id uuid,
+  p_cash numeric,
+  p_ewallet numeric,
+  p_type public.payment_type
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_due numeric;
+  v_tendered numeric := coalesce(p_cash, 0) + coalesce(p_ewallet, 0);
+  v_pid uuid;
+begin
+  v_due := public.booking_amount_due(p_id);
+  if v_tendered + 0.009 < v_due then
+    raise exception 'Payment is short. Amount due is %', v_due;
+  end if;
+  if v_due > 0 then
+    insert into public.payments (booking_id, type, method, amount, status, received_by, paid_at, receipt_no, notes)
+    values (
+      p_id,
+      p_type,
+      (case when coalesce(p_ewallet, 0) > coalesce(p_cash, 0) then 'ewallet' else 'cash' end)::public.payment_method,
+      v_due,
+      'paid'::public.payment_status,
+      auth.uid(),
+      now(),
+      'OR-' || lpad(nextval('public.receipt_seq')::text, 6, '0'),
+      'Cash ' || coalesce(p_cash, 0)::text || ' / E-wallet ' || coalesce(p_ewallet, 0)::text
+    )
+    returning id into v_pid;
+    perform public.sync_paid_amount(p_id);
+  end if;
+  return jsonb_build_object(
+    'due', v_due,
+    'change', greatest(v_tendered - v_due, 0),
+    'payment_id', v_pid
+  );
 end;
 $$;
 
@@ -1039,13 +1133,20 @@ set search_path = public
 as $$
 declare
   b public.bookings;
-  due numeric;
-  tendered numeric := coalesce(p_cash, 0) + coalesce(p_ewallet, 0);
-  included int;
-  pid uuid;
+  v_collected jsonb;
+  v_due numeric;
+  v_included int;
+  v_pay_type public.payment_type;
 begin
   if not public.is_desk() then raise exception 'Front desk only'; end if;
+  perform public.process_booking_lifecycle();
   select * into b from public.bookings where id = p_id for update;
+  if b.status = 'no_show' then
+    raise exception 'This reservation was marked no-show';
+  end if;
+  if b.status = 'expired' then
+    raise exception 'This booking has expired';
+  end if;
   if b.status not in ('confirmed', 'awaiting_downpayment') then
     if b.status = 'checked_in' then raise exception 'Already checked in'; end if;
     raise exception 'Booking is not ready for check-in';
@@ -1054,38 +1155,20 @@ begin
     raise exception 'Downpayment has not been collected yet';
   end if;
 
-  included := b.pax;
+  v_included := b.pax;
   update public.bookings
   set actual_pax = greatest(p_actual_pax, 1),
-      excess_pax = greatest(greatest(p_actual_pax, 1) - included, 0),
+      excess_pax = greatest(greatest(p_actual_pax, 1) - v_included, 0),
       checkin_extra_hours = greatest(p_extra_hours, 0)
   where id = p_id
   returning * into b;
 
-  due := public.booking_amount_due(p_id);
-  if tendered + 0.009 < due then
-    raise exception 'Payment is short. Amount due is %', due;
-  end if;
-
-  if due > 0 then
-    insert into public.payments (booking_id, type, method, amount, status, received_by, paid_at, receipt_no, notes)
-    values (
-      p_id,
-      (case when b.is_walk_in and b.paid_amount = 0 then 'full' else 'balance' end)::public.payment_type,
-      (case when coalesce(p_ewallet, 0) > coalesce(p_cash, 0) then 'ewallet' else 'cash' end)::public.payment_method,
-      due,
-      'paid'::public.payment_status,
-      auth.uid(),
-      now(),
-      'OR-' || lpad(nextval('public.receipt_seq')::text, 6, '0'),
-      'Cash ' || coalesce(p_cash, 0)::text || ' / E-wallet ' || coalesce(p_ewallet, 0)::text
-    )
-    returning id into pid;
-  end if;
+  v_pay_type := (case when b.is_walk_in and public.booking_paid_total(p_id) = 0 then 'full' else 'balance' end)::public.payment_type;
+  v_collected := public.record_collected_payment(p_id, p_cash, p_ewallet, v_pay_type);
+  v_due := (v_collected->>'due')::numeric;
 
   update public.bookings
   set status = 'checked_in',
-      paid_amount = paid_amount + due,
       checked_in_by = auth.uid(),
       checked_in_at = now()
   where id = p_id
@@ -1095,20 +1178,77 @@ begin
   set status = 'occupied',
       current_booking_id = b.id,
       check_in_at = now(),
-      check_out_at = case
-        when b.tour_type = 'overnight' then now() + interval '22 hours'
-        when b.tour_type = 'night' or b.event_when = 'night' then (b.stay_date + time '23:59')::timestamptz
-        else (b.stay_date + time '16:00')::timestamptz
-      end
-  where u.id in (select room_unit_id from public.booking_rooms where booking_id = b.id);
+      check_out_at = public.booking_ends_at(b)
+  where u.id in (select br.room_unit_id from public.booking_rooms br where br.booking_id = b.id);
 
   perform public.notify_admins('Guest checked in', b.reference || ' · ' || b.guest_name, b.id);
   if b.guest_id is not null then
     perform public.notify_user(b.guest_id, 'Checked in', 'Welcome to CK Resort. Enjoy your stay.', b.id);
   end if;
-  perform public.audit('check_in', 'booking', b.id, jsonb_build_object('due', due, 'payment_id', pid));
+  perform public.audit('check_in', 'booking', b.id, v_collected);
 
-  return jsonb_build_object('booking', to_jsonb(b), 'due', due, 'change', greatest(tendered - due, 0), 'payment_id', pid);
+  return jsonb_build_object(
+    'booking', to_jsonb(b),
+    'due', v_due,
+    'change', (v_collected->>'change')::numeric,
+    'payment_id', v_collected->>'payment_id'
+  );
+end;
+$$;
+
+create or replace function public.check_out_booking(
+  p_id uuid,
+  p_cash numeric,
+  p_ewallet numeric
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  b public.bookings;
+  v_collected jsonb;
+  v_due numeric;
+  v_next_status public.booking_status;
+begin
+  if not public.is_desk() then raise exception 'Front desk only'; end if;
+  select * into b from public.bookings where id = p_id for update;
+  if b.status not in ('checked_in', 'checked_out') then
+    raise exception 'Guest is not checked in';
+  end if;
+  if exists (select 1 from public.rental_dispatches rd where rd.booking_id = p_id and rd.status = 'out') then
+    raise exception 'Return all rentals before checkout';
+  end if;
+
+  v_collected := public.record_collected_payment(p_id, p_cash, p_ewallet, 'balance'::public.payment_type);
+  v_due := (v_collected->>'due')::numeric;
+  v_next_status := (case when public.booking_amount_due(p_id) = 0 then 'completed' else 'checked_out' end)::public.booking_status;
+
+  update public.bookings as bk
+  set status = v_next_status,
+      checked_out_by = coalesce(bk.checked_out_by, auth.uid()),
+      checked_out_at = coalesce(bk.checked_out_at, now())
+  where bk.id = p_id
+  returning * into b;
+
+  update public.room_units as ru
+  set status = 'cleaning',
+      turnaround_until = now() + interval '25 minutes',
+      check_out_at = now()
+  where ru.current_booking_id = p_id and ru.status = 'occupied';
+
+  if v_next_status = 'completed' then
+    perform public.notify_once(b.guest_id, 'Stay completed', b.reference || ' is complete. Thank you for visiting CK Resort.', b.id);
+  end if;
+  perform public.audit('check_out', 'booking', b.id, v_collected);
+
+  return jsonb_build_object(
+    'booking', to_jsonb(b),
+    'due', v_due,
+    'change', (v_collected->>'change')::numeric,
+    'payment_id', v_collected->>'payment_id'
+  );
 end;
 $$;
 
@@ -1508,7 +1648,9 @@ grant execute on function public.server_confirm_downpayment(text, text, text) to
 grant execute on function public.server_pending_checkout(text, uuid) to anon, authenticated;
 grant execute on function public.add_booking_charge(uuid, text, numeric) to authenticated;
 grant execute on function public.booking_amount_due(uuid) to authenticated;
+grant execute on function public.booking_final_bill(uuid) to authenticated;
 grant execute on function public.check_in_booking(uuid, int, int, numeric, numeric) to authenticated;
+grant execute on function public.check_out_booking(uuid, numeric, numeric) to authenticated;
 grant execute on function public.set_room_status(uuid, public.room_status) to authenticated;
 grant execute on function public.dispatch_rental(uuid, uuid, int) to authenticated;
 grant execute on function public.return_rental(uuid) to authenticated;

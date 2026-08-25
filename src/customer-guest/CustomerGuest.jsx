@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Panel, RoleLayout, Stat } from '../shared/RoleLayout'
+import { ActionToast, Panel, RoleLayout, Stat } from '../shared/RoleLayout'
 import { Lightbox } from '../shared/motion'
 import BookingFlow from './BookingFlow'
 import {
@@ -120,9 +120,11 @@ export default function CustomerGuest({ session, onSignOut }) {
   const [bookings, setBookings] = useState([])
   const [notes, setNotes] = useState([])
   const [error, setError] = useState('')
+  const [saved, setSaved] = useState('')
   const [busy, setBusy] = useState('')
   const [preview, setPreview] = useState(null)
   const [focusId, setFocusId] = useState('')
+  const [noticeId, setNoticeId] = useState('')
   const [activeStay, setActiveStay] = useState(null)
 
   async function reload() {
@@ -184,10 +186,13 @@ export default function CustomerGuest({ session, onSignOut }) {
   }
 
   async function pay(booking) {
-    setBusy(booking.id)
+    setBusy(`pay:${booking.id}`)
     setError('')
+    setSaved('')
+    setNoticeId(booking.id)
     try {
       const { checkoutUrl } = await startDownpayment(booking.id)
+      setSaved('Opening PayMongo checkout…')
       window.location.href = checkoutUrl
     } catch (err) {
       setError(rpcError(err))
@@ -196,11 +201,17 @@ export default function CustomerGuest({ session, onSignOut }) {
   }
 
   async function verify(booking) {
-    setBusy(booking.id)
+    setBusy(`verify:${booking.id}`)
     setError('')
+    setSaved('')
+    setNoticeId(booking.id)
     try {
       const result = await verifyDownpayment(booking.id)
-      if (!result.paid) setError('Payment is not completed yet. Finish checkout, then tap Verify.')
+      if (!result.paid) {
+        setError('Payment is not completed yet. Finish checkout, then tap Verify.')
+      } else {
+        setSaved(`${booking.reference} payment confirmed.`)
+      }
       await reload()
     } catch (err) {
       setError(rpcError(err))
@@ -208,6 +219,26 @@ export default function CustomerGuest({ session, onSignOut }) {
       setBusy('')
     }
   }
+
+  async function cancel(booking) {
+    if (!window.confirm('Cancel this booking?')) return
+    setBusy(`cancel:${booking.id}`)
+    setError('')
+    setSaved('')
+    setNoticeId(booking.id)
+    try {
+      await cancelBooking(booking.id)
+      setSaved(`${booking.reference} cancelled.`)
+      await reload()
+    } catch (err) {
+      setError(rpcError(err))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  const busyKind = busy.includes(':') ? busy.split(':')[0] : ''
+  const busyId = busy.includes(':') ? busy.slice(busy.indexOf(':') + 1) : busy
 
   const prices = {
     day: catalog?.rates.find((row) => row.key === 'day_20')?.amount || 6000,
@@ -233,7 +264,19 @@ export default function CustomerGuest({ session, onSignOut }) {
       onSignOut={onSignOut}
       unread={notes.filter((item) => !item.is_read).length}
     >
-      {error ? <p className="flash error">{error}</p> : null}
+      <ActionToast
+        busy={Boolean(busy)}
+        tone={error ? 'error' : 'ok'}
+        message={
+          busyKind === 'pay'
+            ? 'Opening PayMongo…'
+            : busyKind === 'verify'
+              ? 'Checking payment…'
+              : busyKind === 'cancel'
+                ? 'Cancelling reservation…'
+                : error || saved
+        }
+      />
 
       {active === 'Home' && (
         <>
@@ -331,30 +374,23 @@ export default function CustomerGuest({ session, onSignOut }) {
                   ) : null}
                   {item.status === 'awaiting_downpayment' ? (
                     <div className="action-row">
-                      <button type="button" className="book-btn" disabled={busy === item.id} onClick={() => pay(item)}>
-                        {busy === item.id ? 'Opening PayMongo…' : `Pay ${peso(item.downpayment_amount)}`}
+                      <button type="button" className="book-btn" disabled={Boolean(busy)} onClick={() => pay(item)}>
+                        {busyKind === 'pay' && busyId === item.id
+                          ? 'Opening PayMongo…'
+                          : `Pay ${peso(item.downpayment_amount)}`}
                       </button>
-                      <button type="button" className="ghost" onClick={() => verify(item)}>
-                        I already paid
+                      <button type="button" className="ghost" disabled={Boolean(busy)} onClick={() => verify(item)}>
+                        {busyKind === 'verify' && busyId === item.id ? 'Checking…' : 'I already paid'}
                       </button>
                     </div>
                   ) : null}
                   {['pending_approval', 'awaiting_downpayment'].includes(item.status) ? (
-                    <button
-                      type="button"
-                      className="text-link"
-                      onClick={async () => {
-                        if (!window.confirm('Cancel this booking?')) return
-                        try {
-                          await cancelBooking(item.id)
-                          await reload()
-                        } catch (err) {
-                          setError(rpcError(err))
-                        }
-                      }}
-                    >
-                      Cancel request
+                    <button type="button" className="text-link" disabled={Boolean(busy)} onClick={() => cancel(item)}>
+                      {busyKind === 'cancel' && busyId === item.id ? 'Cancelling…' : 'Cancel request'}
                     </button>
+                  ) : null}
+                  {(error || saved) && noticeId === item.id ? (
+                    <p className={`flash inline-flash ${error ? 'error' : 'ok'}`}>{error || saved}</p>
                   ) : null}
                 </div>
                 <span className={`pill status-${item.status}`}>{STATUS_LABELS[item.status] || item.status}</span>

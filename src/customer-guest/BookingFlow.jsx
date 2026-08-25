@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ActionToast } from '../shared/RoleLayout'
 import { getActiveBooking, getCatalog, getOccupiedDates, quoteBooking, submitBooking } from '../lib/api'
 import { peso, rpcError } from '../lib/format'
 import { TweenNumber } from '../shared/motion'
@@ -219,29 +220,35 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
 
   if (!catalog) {
     return (
-      <div className="skeleton-page">
-        <div className="skeleton skeleton-card" />
-        <div className="book-grid">
-          <div className="skeleton skeleton-card" style={{ minHeight: 280 }} />
-          <div className="skeleton skeleton-card" style={{ minHeight: 280 }} />
+      <>
+        <ActionToast tone="error" message={error} />
+        <div className="skeleton-page">
+          <div className="skeleton skeleton-card" />
+          <div className="book-grid">
+            <div className="skeleton skeleton-card" style={{ minHeight: 280 }} />
+            <div className="skeleton skeleton-card" style={{ minHeight: 280 }} />
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   if (sent) {
     return (
-      <div className="book-done">
-        <div className="check-burst">✓</div>
-        <h2>Booking sent for approval</h2>
-        <p>
-          {sent.reference} is with the resort manager. After approval you will pay the 50% downpayment of{' '}
-          {peso(sent.downpayment_amount)} through PayMongo.
-        </p>
-        <button type="button" className="book-btn" onClick={onDone}>
-          View my reservations
-        </button>
-      </div>
+      <>
+        <ActionToast tone="ok" message={`${sent.reference} sent for approval.`} />
+        <div className="book-done">
+          <div className="check-burst">✓</div>
+          <h2>Booking sent for approval</h2>
+          <p>
+            {sent.reference} is with the resort manager. After approval you will pay the 50% downpayment of{' '}
+            {peso(sent.downpayment_amount)} through PayMongo.
+          </p>
+          <button type="button" className="book-btn" onClick={onDone}>
+            View my reservations
+          </button>
+        </div>
+      </>
     )
   }
 
@@ -253,6 +260,11 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
 
   return (
     <div className="book">
+      <ActionToast
+        busy={sending}
+        tone={error ? 'error' : 'ok'}
+        message={sending ? 'Sending booking request…' : error}
+      />
       <ol className="steps">
         {STEPS.map((label, index) => (
           <li key={label} className={index === step ? 'on' : index < step ? 'done' : ''}>
