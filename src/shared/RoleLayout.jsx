@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { ROLE_LABELS, ROLE_SHORT } from '../lib/format'
 import { CountUp } from './motion'
 import './workspace.css'
@@ -116,18 +117,70 @@ function NavIcon({ label }) {
   )
 }
 
-export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread = 0, children }) {
+function HamburgerIcon({ open }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={open ? 'is-open' : ''}>
+      <path className="hb-1" fill="currentColor" d="M4 6h16v2H4z" />
+      <path className="hb-2" fill="currentColor" d="M4 11h16v2H4z" />
+      <path className="hb-3" fill="currentColor" d="M4 16h16v2H4z" />
+    </svg>
+  )
+}
+
+function BellIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 3a6 6 0 0 1 6 6v3.2l1.4 2.8A1 1 0 0 1 18.5 17H5.5a1 1 0 0 1-.9-1.5L6 12.2V9a6 6 0 0 1 6-6Zm0 18a2.5 2.5 0 0 1-2.45-2h4.9A2.5 2.5 0 0 1 12 21Z"
+      />
+    </svg>
+  )
+}
+
+const SIDE_KEY = 'ck-side-collapsed'
+
+export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread = 0, headerExtra, children }) {
   const role = ROLE_LABELS[roleId] || roleId
   const short = ROLE_SHORT[roleId] || roleId
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SIDE_KEY)
+      if (saved === '1') return true
+      if (saved === '0') return false
+    } catch {
+      // ignore
+    }
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 980px)').matches
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDE_KEY, collapsed ? '1' : '0')
+    } catch {
+      // ignore
+    }
+  }, [collapsed])
 
   return (
-    <div className={`workspace role-${roleId}`}>
+    <div className={`workspace role-${roleId}${collapsed ? ' side-collapsed' : ''}`}>
       <aside className="side">
-        <div className="side-brand">
-          <img src="/logo.png" alt="CK Resort & Event Place" />
-          <div>
-            <p>CK Resort</p>
-            <span>{role}</span>
+        <div className="side-top">
+          <button
+            type="button"
+            className="side-toggle"
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}
+            onClick={() => setCollapsed((value) => !value)}
+          >
+            <HamburgerIcon open={!collapsed} />
+          </button>
+          <div className="side-brand">
+            <img src="/logo.png" alt="CK Resort & Event Place" />
+            <div className="side-brand-copy">
+              <p>CK Resort</p>
+              <span>{role}</span>
+            </div>
           </div>
         </div>
         <p className="side-label">Menu</p>
@@ -137,26 +190,30 @@ export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread
               key={item}
               type="button"
               className={active === item ? 'on' : ''}
+              title={item}
               onClick={() => onNav(item)}
             >
               <NavIcon label={item} />
-              {item}
+              <span className="nav-label">{item}</span>
             </button>
           ))}
         </nav>
-        <button type="button" className="sign-out" onClick={onSignOut}>
-          Sign out
+        <button type="button" className="sign-out" onClick={onSignOut} title="Sign out">
+          <span className="nav-label">Sign out</span>
         </button>
       </aside>
       <section className="main">
         <header className="topbar">
           <div>
-            <p className="kicker">{unread ? `${unread} new updates` : 'CK Resort workspace'}</p>
+            <p className="kicker">{headerExtra ? 'CK Resort workspace' : unread ? `${unread} new updates` : 'CK Resort workspace'}</p>
             <h1>{active}</h1>
           </div>
-          <div className="who">
-            <span>{name}</span>
-            <small>{short}</small>
+          <div className="who-row">
+            {headerExtra}
+            <div className="who">
+              <span>{name}</span>
+              <small>{short}</small>
+            </div>
           </div>
         </header>
         <div className="body">{children}</div>
@@ -164,6 +221,8 @@ export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread
     </div>
   )
 }
+
+export { BellIcon }
 
 export function Stat({ label, value, hint, onClick }) {
   const inner = (

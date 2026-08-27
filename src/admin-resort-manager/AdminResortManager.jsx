@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ActionToast, Panel, RoleLayout, Stat } from '../shared/RoleLayout'
+import { FolderList, groupByMonth } from '../shared/FolderList'
 import {
   adminMetrics,
   adminReports,
   approveBooking,
+  deleteNotification,
   getCatalog,
   listBookings,
   listNotifications,
@@ -153,21 +155,43 @@ export default function AdminResortManager({ session, onSignOut }) {
           </section>
           <section className="admin-card">
             <h3>Notifications</h3>
-            <ul className="list">
-              {notes.slice(0, 8).map((row) => (
+            <FolderList
+              empty="No notifications yet."
+              groups={[
+                { id: 'unread', label: 'Unread', items: notes.filter((row) => !row.is_read), defaultOpen: true },
+                { id: 'earlier', label: 'Earlier', items: notes.filter((row) => row.is_read) },
+              ]}
+              renderItem={(row) => (
                 <li key={row.id}>
                   <div>
                     <b>{row.title}</b>
                     <small>{row.body}</small>
                   </div>
-                  {!row.is_read ? (
-                    <button type="button" className="desk-ghost" onClick={() => markNotificationRead(row.id).then(reload)}>
-                      Read
+                  <div className="action-row">
+                    {!row.is_read ? (
+                      <button type="button" className="desk-ghost" onClick={() => markNotificationRead(row.id).then(reload)}>
+                        Read
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="text-link danger"
+                      onClick={async () => {
+                        if (!window.confirm('Delete this notification?')) return
+                        try {
+                          await deleteNotification(row.id)
+                          await reload()
+                        } catch (err) {
+                          setError(rpcError(err))
+                        }
+                      }}
+                    >
+                      Delete
                     </button>
-                  ) : null}
+                  </div>
                 </li>
-              ))}
-            </ul>
+              )}
+            />
           </section>
         </div>
       )}
@@ -176,8 +200,31 @@ export default function AdminResortManager({ session, onSignOut }) {
         <div className="admin-split">
           <section className="admin-card">
             <h3>Booking queue</h3>
-            <ul className="admin-list">
-              {bookings.map((request) => (
+            <FolderList
+              empty="No bookings yet."
+              listClassName="admin-list"
+              groups={[
+                { id: 'pending_approval', label: 'Pending', items: bookings.filter((row) => row.status === 'pending_approval'), defaultOpen: true },
+                {
+                  id: 'awaiting_downpayment',
+                  label: 'Awaiting payment',
+                  items: bookings.filter((row) => row.status === 'awaiting_downpayment'),
+                },
+                { id: 'confirmed', label: 'Confirmed', items: bookings.filter((row) => row.status === 'confirmed') },
+                {
+                  id: 'stay',
+                  label: 'On property',
+                  items: bookings.filter((row) => row.status === 'checked_in' || row.status === 'checked_out'),
+                },
+                {
+                  id: 'closed',
+                  label: 'Closed',
+                  items: bookings.filter((row) =>
+                    ['completed', 'cancelled', 'rejected', 'expired', 'no_show'].includes(row.status),
+                  ),
+                },
+              ]}
+              renderItem={(request) => (
                 <li key={request.id}>
                   <button
                     type="button"
@@ -200,8 +247,8 @@ export default function AdminResortManager({ session, onSignOut }) {
                     </span>
                   </button>
                 </li>
-              ))}
-            </ul>
+              )}
+            />
           </section>
           {item && (
             <section className="admin-card">
@@ -477,8 +524,10 @@ export default function AdminResortManager({ session, onSignOut }) {
               </li>
             ))}
           </ul>
-          <ul className="list">
-            {(reports?.payments || []).slice(0, 30).map((row) => (
+          <FolderList
+            empty="No payments recorded yet."
+            groups={groupByMonth(reports?.payments || [], (row) => row.paid_at)}
+            renderItem={(row) => (
               <li key={row.id}>
                 <div>
                   <b>
@@ -490,8 +539,8 @@ export default function AdminResortManager({ session, onSignOut }) {
                 </div>
                 <span className="pill">{peso(row.amount)}</span>
               </li>
-            ))}
-          </ul>
+            )}
+          />
         </Panel>
       )}
     </RoleLayout>

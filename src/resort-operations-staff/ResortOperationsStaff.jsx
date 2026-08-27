@@ -8,6 +8,7 @@ import {
   listDispatches,
   listRoomUnits,
   returnRental,
+  deleteReturnedDispatch,
   setRoomStatus,
 } from '../lib/api'
 import { rpcError } from '../lib/format'
@@ -211,6 +212,20 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
           logs={logs}
           onDispatch={handleDispatch}
           onReturn={handleReturn}
+          onDeleteReturned={async (id) => {
+            setError('')
+            setSaved('')
+            setBusy(`delete:${id}`)
+            try {
+              await deleteReturnedDispatch(id)
+              await reload()
+              setSaved('Returned rental log removed.')
+            } catch (err) {
+              setError(rpcError(err))
+            } finally {
+              setBusy('')
+            }
+          }}
         />
       )}
     </RoleLayout>

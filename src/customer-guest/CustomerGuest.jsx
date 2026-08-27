@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
-import { ActionToast, Panel, RoleLayout, Stat } from '../shared/RoleLayout'
+import { useEffect, useRef, useState } from 'react'
+import { ActionToast, BellIcon, Panel, RoleLayout, Stat } from '../shared/RoleLayout'
 import { Lightbox } from '../shared/motion'
 import BookingFlow from './BookingFlow'
+import { FolderList } from '../shared/FolderList'
 import {
   cancelBooking,
+  deleteNotification,
   getActiveBooking,
   getCatalog,
   listBookings,
@@ -24,7 +26,7 @@ import {
 } from '../lib/format'
 import './booking.css'
 
-const NAV = ['Home', 'Book a stay', 'My reservations', 'Notifications']
+const NAV = ['Home', 'Book a stay', 'My reservations']
 
 const PACKAGES = [
   { id: 'day', label: 'Day tour from', hint: '20 pax · 8:00 AM – 4:00 PM', rateKey: 'day' },
@@ -61,6 +63,80 @@ function addOnSummary(booking, catalog) {
   if (Number(booking.pets) > 0) bits.push(`Pets × ${booking.pets}`)
   for (const row of booking.booking_charges || []) bits.push(row.description)
   return bits.length ? bits.join(' · ') : 'None'
+}
+
+function NotificationBell({ notes, onRead, onDelete }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+  const unread = notes.filter((item) => !item.is_read)
+  const earlier = notes.filter((item) => item.is_read)
+
+  useEffect(() => {
+    function onPointer(event) {
+      if (!wrapRef.current?.contains(event.target)) setOpen(false)
+    }
+    function onKey(event) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    if (!open) return undefined
+    document.addEventListener('mousedown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div className="bell-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        className="bell-btn"
+        aria-label={unread.length ? `${unread.length} unread notifications` : 'Notifications'}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <BellIcon />
+        {unread.length ? <span className="bell-dot">{unread.length > 9 ? '9+' : unread.length}</span> : null}
+      </button>
+      {open ? (
+        <div className="bell-panel" role="dialog" aria-label="Notifications">
+          <h2>Notifications</h2>
+          <FolderList
+            empty="No notifications yet."
+            groups={[
+              { id: 'unread', label: 'Unread', items: unread, defaultOpen: true },
+              { id: 'earlier', label: 'Earlier', items: earlier, defaultOpen: unread.length === 0 },
+            ]}
+            renderItem={(item) => (
+              <li key={item.id}>
+                <div>
+                  <b>{item.title}</b>
+                  <small>{item.body}</small>
+                </div>
+                <div className="action-row">
+                  {!item.is_read ? (
+                    <button type="button" className="desk-ghost" onClick={() => onRead(item.id)}>
+                      Read
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="text-link danger"
+                    onClick={() => {
+                      if (window.confirm('Delete this notification?')) onDelete(item.id)
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            )}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function ActiveStay({ booking, catalog, onView }) {
@@ -263,6 +339,23 @@ export default function CustomerGuest({ session, onSignOut }) {
       }}
       onSignOut={onSignOut}
       unread={notes.filter((item) => !item.is_read).length}
+      headerExtra={
+        <NotificationBell
+          notes={notes}
+          onRead={async (id) => {
+            await markNotificationRead(id)
+            await reload()
+          }}
+          onDelete={async (id) => {
+            try {
+              await deleteNotification(id)
+              await reload()
+            } catch (err) {
+              setError(rpcError(err))
+            }
+          }}
+        />
+      }
     >
       <ActionToast
         busy={Boolean(busy)}
@@ -354,9 +447,23 @@ export default function CustomerGuest({ session, onSignOut }) {
 
       {active === 'My reservations' && (
         <Panel title="Your bookings">
-          {bookings.length === 0 ? <p className="note">No reservations yet.</p> : null}
-          <ul className="list">
-            {bookings.map((item) => (
+          <FolderList
+            empty="No reservations yet."
+            groups={[
+              {
+                id: 'active',
+                label: 'Active',
+                items: bookings.filter((item) => GUEST_ACTIVE_STATUSES.includes(item.status)),
+                defaultOpen: true,
+              },
+              {
+                id: 'past',
+                label: 'Past',
+                items: bookings.filter((item) => !GUEST_ACTIVE_STATUSES.includes(item.status)),
+                defaultOpen: !bookings.some((item) => GUEST_ACTIVE_STATUSES.includes(item.status)),
+              },
+            ]}
+            renderItem={(item) => (
               <li key={item.id} className={item.id === focusId ? 'focus' : ''}>
                 <div>
                   <b>
@@ -395,38 +502,8 @@ export default function CustomerGuest({ session, onSignOut }) {
                 </div>
                 <span className={`pill status-${item.status}`}>{STATUS_LABELS[item.status] || item.status}</span>
               </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-
-      {active === 'Notifications' && (
-        <Panel title="Updates">
-          <ul className="list">
-            {notes.length === 0 ? <li className="empty-row">No notifications yet.</li> : null}
-            {notes.map((item) => (
-              <li key={item.id}>
-                <div>
-                  <b>{item.title}</b>
-                  <small>{item.body}</small>
-                </div>
-                {!item.is_read ? (
-                  <button
-                    type="button"
-                    className="desk-ghost"
-                    onClick={async () => {
-                      await markNotificationRead(item.id)
-                      await reload()
-                    }}
-                  >
-                    Mark read
-                  </button>
-                ) : (
-                  <span className="pill">Read</span>
-                )}
-              </li>
-            ))}
-          </ul>
+            )}
+          />
         </Panel>
       )}
     </RoleLayout>

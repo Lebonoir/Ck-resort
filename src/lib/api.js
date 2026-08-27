@@ -198,7 +198,7 @@ export async function listNotifications() {
     .from('notifications')
     .select('*')
     .order('created_at', { ascending: false })
-    .limit(40)
+    .limit(200)
   throwIf(error)
   return data
 }
@@ -206,6 +206,19 @@ export async function listNotifications() {
 export async function markNotificationRead(id) {
   const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id)
   throwIf(error)
+}
+
+export async function deleteNotification(id) {
+  try {
+    return await rpc('delete_notification', { p_id: id })
+  } catch (err) {
+    const { error } = await supabase.from('notifications').delete().eq('id', id)
+    throwIf(error)
+  }
+}
+
+export async function deleteReturnedDispatch(id) {
+  return rpc('delete_returned_dispatch', { p_id: id })
 }
 
 export async function listUsers() {

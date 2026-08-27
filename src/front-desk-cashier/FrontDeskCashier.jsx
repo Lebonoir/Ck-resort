@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActionToast, RoleLayout, Stat } from '../shared/RoleLayout'
 import RentalDispatch from '../shared/RentalDispatch'
+import { FolderList, groupByMonth } from '../shared/FolderList'
 import {
   addCharge,
   checkInBooking,
   checkOutBooking,
   createWalkIn,
+  deleteReturnedDispatch,
   dispatchRental,
   getCatalog,
   listBookings,
@@ -241,8 +243,30 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                 Walk-in
               </button>
             </div>
-            <ul className="desk-list">
-              {list.map((item) => (
+            <FolderList
+              empty="No bookings match that search."
+              listClassName="desk-list"
+              groups={[
+                { id: 'arriving', label: 'Arriving', items: list.filter((item) => item.status === 'confirmed'), defaultOpen: true },
+                {
+                  id: 'inside',
+                  label: 'On property',
+                  items: list.filter((item) => item.status === 'checked_in' || item.status === 'checked_out'),
+                },
+                {
+                  id: 'waiting',
+                  label: 'Awaiting',
+                  items: list.filter((item) => item.status === 'pending_approval' || item.status === 'awaiting_downpayment'),
+                },
+                {
+                  id: 'history',
+                  label: 'History',
+                  items: list.filter((item) =>
+                    ['completed', 'cancelled', 'rejected', 'expired', 'no_show'].includes(item.status),
+                  ),
+                },
+              ]}
+              renderItem={(item) => (
                 <li key={item.id}>
                   <button type="button" className={item.id === selectedId && !walkIn ? 'on' : ''} onClick={() => pick(item)}>
                     <b>
@@ -257,8 +281,8 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                     </span>
                   </button>
                 </li>
-              ))}
-            </ul>
+              )}
+            />
           </section>
 
           <section className="desk-card ticket">
@@ -436,20 +460,43 @@ export default function FrontDeskCashier({ session, onSignOut }) {
           rentals={catalog?.rentals || []}
           logs={logs}
           onDispatch={async ({ guestId, itemId, qty }) => {
-            await dispatchRental(guestId, itemId, qty)
-            await reload()
+            setError('')
+            try {
+              await dispatchRental(guestId, itemId, qty)
+              await reload()
+              setDone('Rental logged as out.')
+            } catch (err) {
+              setError(rpcError(err))
+            }
           }}
           onReturn={async (id) => {
-            await returnRental(id)
-            await reload()
+            setError('')
+            try {
+              await returnRental(id)
+              await reload()
+              setDone('Rental marked returned.')
+            } catch (err) {
+              setError(rpcError(err))
+            }
+          }}
+          onDeleteReturned={async (id) => {
+            setError('')
+            try {
+              await deleteReturnedDispatch(id)
+              await reload()
+              setDone('Returned rental log removed.')
+            } catch (err) {
+              setError(rpcError(err))
+            }
           }}
         />
       )}
 
       {active === 'Receipts' && (
-        <ul className="list">
-          {paidReceipts.length === 0 ? <li>No payments recorded yet.</li> : null}
-          {paidReceipts.map((item) => (
+        <FolderList
+          empty="No payments recorded yet."
+          groups={groupByMonth(paidReceipts, (item) => item.paid_at)}
+          renderItem={(item) => (
             <li key={item.id}>
               <div>
                 <b>
@@ -461,8 +508,8 @@ export default function FrontDeskCashier({ session, onSignOut }) {
               </div>
               <span className="pill">{peso(item.amount)}</span>
             </li>
-          ))}
-        </ul>
+          )}
+        />
       )}
     </RoleLayout>
   )

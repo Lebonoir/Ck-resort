@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { FolderList } from '../shared/FolderList'
 import { Stat } from '../shared/RoleLayout'
 import { adminCreateAccount, adminDeleteAccount, adminUpdateAccount } from '../lib/api'
 import { ROLE_LABELS, rpcError } from '../lib/format'
@@ -254,9 +255,16 @@ export default function UsersPanel({ users, onReload, onError, onSaved }) {
           </button>
         </div>
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, email, or role" />
-        <ul className="list user-directory">
-          {visible.length === 0 ? <li>No accounts match that search.</li> : null}
-          {visible.map((user) => (
+        <FolderList
+          empty="No accounts match that search."
+          listClassName="list user-directory"
+          groups={ROLE_OPTIONS.map((role) => ({
+            id: role.id,
+            label: role.label,
+            items: visible.filter((user) => user.role === role.id),
+            defaultOpen: role.id !== 'guest' || visible.filter((user) => user.role === 'guest').length <= 12,
+          }))}
+          renderItem={(user) => (
             <li key={user.id}>
               <div>
                 <b>
@@ -274,8 +282,8 @@ export default function UsersPanel({ users, onReload, onError, onSaved }) {
                 </button>
               </div>
             </li>
-          ))}
-        </ul>
+          )}
+        />
       </section>
 
       {creating ? (

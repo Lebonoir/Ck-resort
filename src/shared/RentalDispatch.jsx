@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import '../front-desk-cashier/front-desk.css'
+import { FolderList, groupByMonth } from './FolderList'
 
 function Counter({ label, value, onChange, min = 0 }) {
   return (
@@ -18,7 +19,7 @@ function Counter({ label, value, onChange, min = 0 }) {
   )
 }
 
-export default function RentalDispatch({ guests, rentals = [], logs, onDispatch, onReturn }) {
+export default function RentalDispatch({ guests, rentals = [], logs, onDispatch, onReturn, onDeleteReturned }) {
   const items = rentals
   const [guestId, setGuestId] = useState(guests[0]?.id || '')
   const [itemId, setItemId] = useState(items[0]?.id || '')
@@ -99,10 +100,12 @@ export default function RentalDispatch({ guests, rentals = [], logs, onDispatch,
             </li>
           ))}
         </ul>
-        <p className="desk-label">Returned today</p>
-        <ul className="desk-log">
-          {back.length === 0 ? <li className="empty">No returns logged yet.</li> : null}
-          {back.map((item) => (
+        <p className="desk-label">Returned</p>
+        <FolderList
+          empty="No returns logged yet."
+          listClassName="desk-log"
+          groups={groupByMonth(back, (item) => item.returned_at || item.returnedAt || item.dispatched_at)}
+          renderItem={(item) => (
             <li key={item.id}>
               <div>
                 <b>
@@ -112,10 +115,22 @@ export default function RentalDispatch({ guests, rentals = [], logs, onDispatch,
                   {item.bookings?.guest_name || item.guestName} · back {item.returned_at || item.returnedAt}
                 </small>
               </div>
-              <span className="pill">In</span>
+              {onDeleteReturned ? (
+                <button
+                  type="button"
+                  className="text-link danger"
+                  onClick={() => {
+                    if (window.confirm('Remove this returned rental log?')) onDeleteReturned(item.id)
+                  }}
+                >
+                  Delete
+                </button>
+              ) : (
+                <span className="pill">In</span>
+              )}
             </li>
-          ))}
-        </ul>
+          )}
+        />
       </section>
     </div>
   )
