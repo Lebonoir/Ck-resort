@@ -854,3 +854,93 @@ button:disabled {
     padding-right: 16px;
   }
 }
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(7, 25, 46, 0.46);
+  backdrop-filter: blur(10px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  animation: overlayIn 0.28s ease;
+}
+
+.confirm-modal {
+  width: min(440px, 100%);
+  background: #fff;
+  border-radius: 18px;
+  padding: 20px 18px 16px;
+  box-shadow: 0 24px 60px rgba(7, 25, 46, 0.22);
+  display: grid;
+  gap: 12px;
+  animation: modalIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.confirm-modal h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 26px;
+  color: var(--navy);
+}
+
+.confirm-modal p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.confirm-modal .action-row {
+  margin-top: 4px;
+}
+
+.confirm-modal .book-btn,
+.confirm-ok {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 700;
+  background: var(--navy);
+  color: #fff;
+}
+
+.confirm-modal .desk-ghost {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 700;
+  background: #eef4f7;
+  color: var(--navy);
+}
+
+.confirm-danger {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 700;
+  background: #c43d4b;
+  color: #fff;
+}
+
+.bell-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bell-panel-head h2,
+.bell-panel-head h3 {
+  margin: 0;
+}
+
+.bell-panel-head button {
+  border: 0;
+  background: #eef4f7;
+  color: var(--navy);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-weight: 700;
+  font-size: 12px;
+}

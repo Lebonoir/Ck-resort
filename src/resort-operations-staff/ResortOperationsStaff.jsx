@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ActionToast, RoleLayout, Stat } from '../shared/RoleLayout'
+import { useConfirm } from '../shared/ConfirmDialog'
 import RentalDispatch from '../shared/RentalDispatch'
 import {
   dispatchRental,
@@ -30,6 +31,7 @@ function formatRemain(until, now = Date.now()) {
 }
 
 export default function ResortOperationsStaff({ session, onSignOut }) {
+  const confirm = useConfirm()
   const [active, setActive] = useState('Housekeeping')
   const [rooms, setRooms] = useState([])
   const [bookings, setBookings] = useState([])
@@ -64,6 +66,14 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
   }, [])
 
   async function changeRoom(id, status, label) {
+    const roomTitle = label.split(' · ')[0]
+    const prompts = {
+      cleaning: { title: 'Start cleaning', message: `Start cleaning ${roomTitle}?`, confirmLabel: 'Start cleaning' },
+      available: { title: 'Mark ready', message: `Mark ${roomTitle} as available?`, confirmLabel: 'Mark ready' },
+      occupied: { title: 'Mark occupied', message: `Mark ${roomTitle} as occupied?`, confirmLabel: 'Mark occupied' },
+    }
+    const ok = await confirm(prompts[status] || { message: label, confirmLabel: 'Continue' })
+    if (!ok) return
     setError('')
     setSaved('')
     setBusy(id)

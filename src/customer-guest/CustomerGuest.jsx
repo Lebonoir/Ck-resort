@@ -3,6 +3,7 @@ import { ActionToast, BellIcon, Panel, RoleLayout, Stat } from '../shared/RoleLa
 import { Lightbox } from '../shared/motion'
 import BookingFlow from './BookingFlow'
 import { FolderList } from '../shared/FolderList'
+import { useConfirm } from '../shared/ConfirmDialog'
 import {
   cancelBooking,
   deleteNotification,
@@ -10,6 +11,7 @@ import {
   getCatalog,
   listBookings,
   listNotifications,
+  markAllNotificationsRead,
   markNotificationRead,
   startDownpayment,
   verifyDownpayment,
@@ -65,7 +67,8 @@ function addOnSummary(booking, catalog) {
   return bits.length ? bits.join(' · ') : 'None'
 }
 
-function NotificationBell({ notes, onRead, onDelete }) {
+function NotificationBell({ notes, onRead, onReadAll, onDelete }) {
+  const confirm = useConfirm()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
   const unread = notes.filter((item) => !item.is_read)
@@ -101,7 +104,14 @@ function NotificationBell({ notes, onRead, onDelete }) {
       </button>
       {open ? (
         <div className="bell-panel" role="dialog" aria-label="Notifications">
-          <h2>Notifications</h2>
+          <div className="bell-panel-head">
+            <h2>Notifications</h2>
+            {unread.length ? (
+              <button type="button" onClick={() => onReadAll()}>
+                Mark all as read
+              </button>
+            ) : null}
+          </div>
           <FolderList
             empty="No notifications yet."
             groups={[
@@ -123,8 +133,14 @@ function NotificationBell({ notes, onRead, onDelete }) {
                   <button
                     type="button"
                     className="text-link danger"
-                    onClick={() => {
-                      if (window.confirm('Delete this notification?')) onDelete(item.id)
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: 'Delete notification',
+                        message: 'Remove this notification from your list?',
+                        confirmLabel: 'Delete',
+                        danger: true,
+                      })
+                      if (ok) onDelete(item.id)
                     }}
                   >
                     Delete
@@ -190,6 +206,7 @@ function ActiveStay({ booking, catalog, onView }) {
 }
 
 export default function CustomerGuest({ session, onSignOut }) {
+  const confirm = useConfirm()
   const [active, setActive] = useState('Home')
   const [initialPackage, setInitialPackage] = useState('day')
   const [catalog, setCatalog] = useState(null)
@@ -262,6 +279,12 @@ export default function CustomerGuest({ session, onSignOut }) {
   }
 
   async function pay(booking) {
+    const ok = await confirm({
+      title: 'Pay downpayment',
+      message: `Open PayMongo to pay ${peso(booking.downpayment_amount)} for ${booking.reference}?`,
+      confirmLabel: 'Continue to PayMongo',
+    })
+    if (!ok) return
     setBusy(`pay:${booking.id}`)
     setError('')
     setSaved('')
@@ -297,7 +320,13 @@ export default function CustomerGuest({ session, onSignOut }) {
   }
 
   async function cancel(booking) {
-    if (!window.confirm('Cancel this booking?')) return
+    const ok = await confirm({
+      title: 'Cancel reservation',
+      message: `Cancel ${booking.reference}? This cannot be undone.`,
+      confirmLabel: 'Cancel reservation',
+      danger: true,
+    })
+    if (!ok) return
     setBusy(`cancel:${booking.id}`)
     setError('')
     setSaved('')
@@ -345,6 +374,14 @@ export default function CustomerGuest({ session, onSignOut }) {
           onRead={async (id) => {
             await markNotificationRead(id)
             await reload()
+          }}
+          onReadAll={async () => {
+            try {
+              await markAllNotificationsRead()
+              await reload()
+            } catch (err) {
+              setError(rpcError(err))
+            }
           }}
           onDelete={async (id) => {
             try {

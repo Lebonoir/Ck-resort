@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ActionToast, RoleLayout, Stat } from '../shared/RoleLayout'
 import RentalDispatch from '../shared/RentalDispatch'
 import { FolderList, groupByMonth } from '../shared/FolderList'
+import { useConfirm } from '../shared/ConfirmDialog'
 import {
   addCharge,
   checkInBooking,
@@ -66,6 +67,7 @@ function receiptHtml(booking, result, catalog) {
 }
 
 export default function FrontDeskCashier({ session, onSignOut }) {
+  const confirm = useConfirm()
   const [active, setActive] = useState('POS & Check-in')
   const [bookings, setBookings] = useState([])
   const [catalog, setCatalog] = useState(null)
@@ -131,6 +133,12 @@ export default function FrontDeskCashier({ session, onSignOut }) {
   }
 
   async function loadWalkIn() {
+    const ok = await confirm({
+      title: 'Create walk-in',
+      message: `Load a ${walkType} walk-in for ${walkName.trim()}? Full amount is due at the counter.`,
+      confirmLabel: 'Load to POS',
+    })
+    if (!ok) return
     setError('')
     setDone('')
     setBusy('walkin')
@@ -157,6 +165,13 @@ export default function FrontDeskCashier({ session, onSignOut }) {
 
   async function collect() {
     if (!booking) return
+    const tendered = (Number(cash) || 0) + (Number(ewallet) || 0)
+    const ok = await confirm({
+      title: 'Collect & check in',
+      message: `Check in ${booking.guest_name} and collect ${peso(preview?.due || 0)} now (tendered ${peso(tendered)})?`,
+      confirmLabel: 'Collect & check in',
+    })
+    if (!ok) return
     setError('')
     setDone('')
     setBusy('collect')
@@ -179,6 +194,13 @@ export default function FrontDeskCashier({ session, onSignOut }) {
 
   async function checkout() {
     if (!booking) return
+    const tendered = (Number(cash) || 0) + (Number(ewallet) || 0)
+    const ok = await confirm({
+      title: booking.status === 'checked_out' ? 'Complete stay' : 'Collect & check out',
+      message: `Collect ${peso(preview?.due || 0)} (tendered ${peso(tendered)}) and ${booking.status === 'checked_out' ? 'complete' : 'check out'} ${booking.guest_name}?`,
+      confirmLabel: booking.status === 'checked_out' ? 'Complete stay' : 'Check out',
+    })
+    if (!ok) return
     setError('')
     setDone('')
     setBusy('checkout')
@@ -340,6 +362,12 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                       className="desk-ghost"
                       disabled={!extraHours || Boolean(busy)}
                       onClick={async () => {
+                        const ok = await confirm({
+                          title: 'Add extra hours',
+                          message: `Add ${extraHours} extra hour${extraHours === 1 ? '' : 's'} (${peso(extraHours * hourRate)}) to ${booking.guest_name}'s bill?`,
+                          confirmLabel: 'Add to bill',
+                        })
+                        if (!ok) return
                         setError('')
                         setDone('')
                         setBusy('hours')
@@ -372,11 +400,18 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                   className="desk-ghost"
                   disabled={Boolean(busy)}
                   onClick={async () => {
+                    const amount = Number(chargeAmount) || 0
+                    const ok = await confirm({
+                      title: 'Add charge',
+                      message: `Add ${chargeLabel.trim() || 'this add-on'} (${peso(amount)}) to ${booking.guest_name}'s bill?`,
+                      confirmLabel: 'Add charge',
+                    })
+                    if (!ok) return
                     setError('')
                     setDone('')
                     setBusy('charge')
                     try {
-                      await addCharge(booking.id, chargeLabel, Number(chargeAmount) || 0)
+                      await addCharge(booking.id, chargeLabel, amount)
                       setChargeLabel('')
                       setChargeAmount('')
                       const rows = await reload()

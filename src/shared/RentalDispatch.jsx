@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import '../front-desk-cashier/front-desk.css'
 import { FolderList, groupByMonth } from './FolderList'
+import { useConfirm } from './ConfirmDialog'
 
 function Counter({ label, value, onChange, min = 0 }) {
   return (
@@ -20,6 +21,7 @@ function Counter({ label, value, onChange, min = 0 }) {
 }
 
 export default function RentalDispatch({ guests, rentals = [], logs, onDispatch, onReturn, onDeleteReturned }) {
+  const confirm = useConfirm()
   const items = rentals
   const [guestId, setGuestId] = useState(guests[0]?.id || '')
   const [itemId, setItemId] = useState(items[0]?.id || '')
@@ -68,6 +70,14 @@ export default function RentalDispatch({ guests, rentals = [], logs, onDispatch,
           className="desk-btn"
           disabled={!guestId || !items.length}
           onClick={async () => {
+            const guest = guests.find((row) => row.id === guestId)
+            const item = items.find((row) => row.id === itemId)
+            const ok = await confirm({
+              title: 'Dispatch rental',
+              message: `Log ${qty}× ${item?.name || 'item'} out to ${guest?.guest_name || guest?.name || 'this guest'}?`,
+              confirmLabel: 'Log as out',
+            })
+            if (!ok) return
             await onDispatch({ guestId, itemId, qty })
             setQty(1)
           }}
@@ -94,7 +104,18 @@ export default function RentalDispatch({ guests, rentals = [], logs, onDispatch,
                   {item.bookings?.guest_name || item.guestName} · out {item.dispatched_at || item.time}
                 </small>
               </div>
-              <button type="button" className="desk-ghost" onClick={() => onReturn(item.id)}>
+              <button
+                type="button"
+                className="desk-ghost"
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: 'Mark returned',
+                    message: `Mark ${item.qty}× ${item.rentals?.name || item.itemName} as returned?`,
+                    confirmLabel: 'Mark returned',
+                  })
+                  if (ok) onReturn(item.id)
+                }}
+              >
                 Mark returned
               </button>
             </li>
@@ -119,8 +140,14 @@ export default function RentalDispatch({ guests, rentals = [], logs, onDispatch,
                 <button
                   type="button"
                   className="text-link danger"
-                  onClick={() => {
-                    if (window.confirm('Remove this returned rental log?')) onDeleteReturned(item.id)
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: 'Delete rental log',
+                      message: 'Remove this returned rental log? This cannot be undone.',
+                      confirmLabel: 'Delete',
+                      danger: true,
+                    })
+                    if (ok) onDeleteReturned(item.id)
                   }}
                 >
                   Delete

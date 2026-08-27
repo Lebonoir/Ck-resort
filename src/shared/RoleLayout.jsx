@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ROLE_LABELS, ROLE_SHORT } from '../lib/format'
+import { useConfirm } from './ConfirmDialog'
 import { CountUp } from './motion'
 import './workspace.css'
 
@@ -138,6 +139,27 @@ function BellIcon() {
   )
 }
 
+function SignOutButton({ onSignOut }) {
+  const confirm = useConfirm()
+  return (
+    <button
+      type="button"
+      className="sign-out"
+      title="Sign out"
+      onClick={async () => {
+        const ok = await confirm({
+          title: 'Sign out',
+          message: 'Sign out of the CK Resort workspace?',
+          confirmLabel: 'Sign out',
+        })
+        if (ok) onSignOut()
+      }}
+    >
+      <span className="nav-label">Sign out</span>
+    </button>
+  )
+}
+
 const SIDE_KEY = 'ck-side-collapsed'
 
 export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread = 0, headerExtra, children }) {
@@ -198,9 +220,7 @@ export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread
             </button>
           ))}
         </nav>
-        <button type="button" className="sign-out" onClick={onSignOut} title="Sign out">
-          <span className="nav-label">Sign out</span>
-        </button>
+        <SignOutButton onSignOut={onSignOut} />
       </aside>
       <section className="main">
         <header className="topbar">

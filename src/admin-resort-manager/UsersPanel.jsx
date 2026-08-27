@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FolderList } from '../shared/FolderList'
+import { useConfirm } from '../shared/ConfirmDialog'
 import { Stat } from '../shared/RoleLayout'
 import { adminCreateAccount, adminDeleteAccount, adminUpdateAccount } from '../lib/api'
 import { ROLE_LABELS, rpcError } from '../lib/format'
@@ -120,6 +121,7 @@ function AccountFields({ value, onChange, includePassword }) {
 
 export default function UsersPanel({ users, onReload, onError, onSaved }) {
   const { profile } = useAuth()
+  const confirm = useConfirm()
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -209,13 +211,13 @@ export default function UsersPanel({ users, onReload, onError, onSaved }) {
   }
 
   async function handleDelete() {
-    if (
-      !window.confirm(
-        `Delete ${editing.firstName} ${editing.lastName}? Bookings and payments are kept for audit. This cannot be undone.`,
-      )
-    ) {
-      return
-    }
+    const ok = await confirm({
+      title: 'Delete account',
+      message: `Delete ${editing.firstName} ${editing.lastName}? Bookings and payments are kept for audit. This cannot be undone.`,
+      confirmLabel: 'Delete account',
+      danger: true,
+    })
+    if (!ok) return
     setBusy(true)
     setFormError('')
     onError('')

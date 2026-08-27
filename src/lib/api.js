@@ -208,6 +208,19 @@ export async function markNotificationRead(id) {
   throwIf(error)
 }
 
+export async function markAllNotificationsRead() {
+  try {
+    return await rpc('mark_all_notifications_read')
+  } catch {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error('Sign in required')
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false)
+    throwIf(error)
+  }
+}
+
 export async function deleteNotification(id) {
   try {
     return await rpc('delete_notification', { p_id: id })

@@ -1332,6 +1332,24 @@ begin
 end;
 $$;
 
+create or replace function public.mark_all_notifications_read()
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  if auth.uid() is null then raise exception 'Sign in required'; end if;
+  update public.notifications
+  set is_read = true
+  where user_id = auth.uid() and is_read = false;
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
 create or replace function public.delete_returned_dispatch(p_id uuid)
 returns boolean
 language plpgsql
@@ -1689,6 +1707,7 @@ grant execute on function public.set_room_status(uuid, public.room_status) to au
 grant execute on function public.dispatch_rental(uuid, uuid, int) to authenticated;
 grant execute on function public.return_rental(uuid) to authenticated;
 grant execute on function public.delete_notification(uuid) to authenticated;
+grant execute on function public.mark_all_notifications_read() to authenticated;
 grant execute on function public.delete_returned_dispatch(uuid) to authenticated;
 grant execute on function public.invite_staff(text, text, public.user_role) to authenticated;
 grant execute on function public.admin_update_account(uuid, text, text, text, text, public.user_role, boolean) to authenticated;

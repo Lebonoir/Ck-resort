@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ActionToast, Panel, RoleLayout, Stat } from '../shared/RoleLayout'
 import { FolderList, groupByMonth } from '../shared/FolderList'
+import { useConfirm } from '../shared/ConfirmDialog'
 import {
   adminMetrics,
   adminReports,
@@ -10,6 +11,7 @@ import {
   listBookings,
   listNotifications,
   listUsers,
+  markAllNotificationsRead,
   markNotificationRead,
   rejectBooking,
   saveLifecycleSettings,
@@ -27,6 +29,7 @@ import './admin.css'
 const NAV = ['Dashboard', 'Approvals', 'Users', 'Rates', 'Reports']
 
 export default function AdminResortManager({ session, onSignOut }) {
+  const confirm = useConfirm()
   const [active, setActive] = useState('Dashboard')
   const [metrics, setMetrics] = useState(null)
   const [bookings, setBookings] = useState([])
@@ -154,7 +157,25 @@ export default function AdminResortManager({ session, onSignOut }) {
             </ul>
           </section>
           <section className="admin-card">
-            <h3>Notifications</h3>
+            <div className="bell-panel-head">
+              <h3>Notifications</h3>
+              {notes.some((row) => !row.is_read) ? (
+                <button
+                  type="button"
+                  className="desk-ghost"
+                  onClick={async () => {
+                    try {
+                      await markAllNotificationsRead()
+                      await reload()
+                    } catch (err) {
+                      setError(rpcError(err))
+                    }
+                  }}
+                >
+                  Mark all as read
+                </button>
+              ) : null}
+            </div>
             <FolderList
               empty="No notifications yet."
               groups={[
@@ -177,7 +198,13 @@ export default function AdminResortManager({ session, onSignOut }) {
                       type="button"
                       className="text-link danger"
                       onClick={async () => {
-                        if (!window.confirm('Delete this notification?')) return
+                        const ok = await confirm({
+                          title: 'Delete notification',
+                          message: 'Remove this notification from your list?',
+                          confirmLabel: 'Delete',
+                          danger: true,
+                        })
+                        if (!ok) return
                         try {
                           await deleteNotification(row.id)
                           await reload()
@@ -309,6 +336,12 @@ export default function AdminResortManager({ session, onSignOut }) {
                       className="book-btn"
                       disabled={Boolean(busy)}
                       onClick={async () => {
+                        const ok = await confirm({
+                          title: 'Approve reservation',
+                          message: `Approve ${item.reference} for ${item.guest_name}? The guest will be asked to pay a 50% downpayment.`,
+                          confirmLabel: 'Approve',
+                        })
+                        if (!ok) return
                         setError('')
                         setSaved('')
                         setBusy('approve')
@@ -330,7 +363,13 @@ export default function AdminResortManager({ session, onSignOut }) {
                       className="desk-ghost"
                       disabled={Boolean(busy)}
                       onClick={async () => {
-                        if (!window.confirm('Reject this booking?')) return
+                        const ok = await confirm({
+                          title: 'Reject reservation',
+                          message: `Reject ${item.reference}? The guest will be notified.`,
+                          confirmLabel: 'Reject',
+                          danger: true,
+                        })
+                        if (!ok) return
                         setError('')
                         setSaved('')
                         setBusy('reject')
@@ -410,6 +449,12 @@ export default function AdminResortManager({ session, onSignOut }) {
             className="admin-save"
             disabled={Boolean(busy)}
             onClick={async () => {
+              const ok = await confirm({
+                title: 'Save booking rules',
+                message: 'Update downpayment hours, no-show grace, and downpayment policy for all future bookings?',
+                confirmLabel: 'Save rules',
+              })
+              if (!ok) return
               setError('')
               setSaved('')
               setBusy('rates')

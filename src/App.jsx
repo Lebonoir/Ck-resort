@@ -8,7 +8,7 @@ import PaymentReturn from './customer-guest/PaymentReturn'
 import FrontDeskCashier from './front-desk-cashier/FrontDeskCashier'
 import ResortOperationsStaff from './resort-operations-staff/ResortOperationsStaff'
 import AdminResortManager from './admin-resort-manager/AdminResortManager'
-import './App.css'
+import { ConfirmProvider } from './shared/ConfirmDialog'
 
 const SCREENS = {
   guest: CustomerGuest,
@@ -106,7 +106,9 @@ function Gate() {
 export default function App() {
   return (
     <AuthProvider>
-      <Gate />
+      <ConfirmProvider>
+        <Gate />
+      </ConfirmProvider>
     </AuthProvider>
   )
 }

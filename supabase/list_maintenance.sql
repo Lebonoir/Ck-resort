@@ -1,4 +1,4 @@
--- List maintenance: delete own notifications, and returned rental logs.
+-- List maintenance: delete own notifications, mark all as read, delete returned rental logs.
 -- Run in the Supabase SQL Editor. Safe to re-run.
 -- Does not delete receipts, payments, or bookings.
 
@@ -41,7 +41,26 @@ begin
 end;
 $$;
 
+create or replace function public.mark_all_notifications_read()
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  if auth.uid() is null then raise exception 'Sign in required'; end if;
+  update public.notifications
+  set is_read = true
+  where user_id = auth.uid() and is_read = false;
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
 grant execute on function public.delete_notification(uuid) to authenticated;
 grant execute on function public.delete_returned_dispatch(uuid) to authenticated;
+grant execute on function public.mark_all_notifications_read() to authenticated;
 
 notify pgrst, 'reload schema';

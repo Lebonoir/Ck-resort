@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActionToast } from '../shared/RoleLayout'
+import { useConfirm } from '../shared/ConfirmDialog'
 import { getActiveBooking, getCatalog, getOccupiedDates, quoteBooking, submitBooking } from '../lib/api'
 import { peso, rpcError } from '../lib/format'
 import { TweenNumber } from '../shared/motion'
@@ -92,6 +93,7 @@ function Calendar({ value, onChange, blocked, todayStarted }) {
 }
 
 export default function BookingFlow({ onDone, onHasActive, initialTourType = 'day' }) {
+  const confirm = useConfirm()
   const [step, setStep] = useState(0)
   const [catalog, setCatalog] = useState(null)
   const [occupied, setOccupied] = useState([])
@@ -198,6 +200,12 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
   }
 
   async function sendRequest() {
+    const ok = await confirm({
+      title: 'Send booking request',
+      message: `Submit ${summary.package_label || 'this stay'} on ${booking.stay_date} for ${peso(summary.total)}? The 50% downpayment is due only after the manager approves.`,
+      confirmLabel: 'Send request',
+    })
+    if (!ok) return
     setSending(true)
     setError('')
     try {
