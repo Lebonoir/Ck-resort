@@ -416,10 +416,3 @@ export async function verifyDownpayment(bookingId) {
   if (!response.ok) throw new Error(json.error || 'Could not verify payment.')
   return json
 }
-
-export async function uploadProof(userId, bookingId, file) {
-  const path = `${userId}/${bookingId}/${Date.now()}-${file.name}`
-  const { error } = await supabase.storage.from('payment-proofs').upload(path, file)
-  throwIf(error)
-  return path
-}

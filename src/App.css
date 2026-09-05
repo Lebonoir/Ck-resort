@@ -373,8 +373,7 @@ form,
 }
 
 .field-icon svg,
-.ghost-icon svg,
-.choice-grid svg {
+.ghost-icon svg {
   width: 18px;
   height: 18px;
 }
@@ -462,16 +461,8 @@ form,
   gap: 12px;
 }
 
-.check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.check input {
-  accent-color: var(--navy-mid);
+.row-between.row-end {
+  justify-content: flex-end;
 }
 
 .text-link {
@@ -482,8 +473,7 @@ form,
   padding: 0;
 }
 
-.role-picker p,
-.otp-choice p {
+.role-picker p {
   margin: 6px 0 8px;
   font-size: 13px;
   font-weight: 700;
@@ -530,40 +520,6 @@ form,
 .role-grid .locked {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-.choice-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.choice-grid button {
-  text-align: left;
-  border: 1.5px solid var(--line);
-  background: #fff;
-  border-radius: 14px;
-  padding: 10px;
-  color: var(--muted);
-  display: grid;
-  gap: 2px;
-  transition: 0.2s ease;
-}
-
-.choice-grid strong {
-  color: var(--navy);
-  font-size: 14px;
-}
-
-.choice-grid span {
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.choice-grid .picked {
-  border-color: var(--aqua);
-  background: linear-gradient(180deg, #f3fcfe, #e7f7fb);
-  box-shadow: 0 8px 18px rgba(62, 198, 224, 0.16);
 }
 
 .submit {
@@ -769,8 +725,7 @@ form,
     overflow: visible;
   }
 
-  .name-grid,
-  .choice-grid {
+  .name-grid {
     grid-template-columns: 1fr;
   }
 

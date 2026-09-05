@@ -9,13 +9,11 @@ const emptySignup = {
   contact: '',
   email: '',
   password: '',
-  otpChannel: 'email',
 }
 
 const emptyLogin = {
   email: '',
   password: '',
-  remember: true,
 }
 
 function IconUser() {
@@ -252,11 +250,7 @@ export default function AuthPage({ onBack, recovery = false }) {
       if (data.session) return
       setStep('otp')
       setSeconds(45)
-      setInfo(
-        signup.otpChannel === 'sms'
-          ? 'SMS OTP requires a phone provider. A verification code was sent to your email instead.'
-          : `We sent a 6-digit code to ${signup.email}.`,
-      )
+      setInfo(`We sent a 6-digit code to ${signup.email}.`)
       return
     }
 
@@ -479,44 +473,10 @@ export default function AuthPage({ onBack, recovery = false }) {
                 )}
 
                 {mode === 'login' && (
-                  <div className="row-between">
-                    <label className="check">
-                      <input
-                        type="checkbox"
-                        checked={login.remember}
-                        onChange={(event) => setLogin((current) => ({ ...current, remember: event.target.checked }))}
-                      />
-                      Remember me
-                    </label>
+                  <div className="row-between row-end">
                     <button type="button" className="text-link" onClick={() => resetFlow('forgot')}>
                       Forgot password?
                     </button>
-                  </div>
-                )}
-
-                {mode === 'signup' && (
-                  <div className="otp-choice">
-                    <p>Authentication</p>
-                    <div className="choice-grid">
-                      <button
-                        type="button"
-                        className={signup.otpChannel === 'email' ? 'picked' : ''}
-                        onClick={() => updateSignup('otpChannel', 'email')}
-                      >
-                        <IconMail />
-                        <strong>OTP via Email</strong>
-                        <span>Send a 6-digit code to your inbox</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={signup.otpChannel === 'sms' ? 'picked' : ''}
-                        onClick={() => updateSignup('otpChannel', 'sms')}
-                      >
-                        <IconPhone />
-                        <strong>OTP via SMS</strong>
-                        <span>Falls back to email until SMS is configured</span>
-                      </button>
-                    </div>
                   </div>
                 )}
 

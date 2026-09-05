@@ -37,12 +37,24 @@ function Counter({ label, value, onChange, min = 0 }) {
   )
 }
 
-function receiptHtml(booking, result, catalog) {
-  const lines = booking.quote_lines || []
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]
+  ))
+}
+
+function receiptHtml(booking, result, tendered) {
+  const packageLines = booking.quote_lines || []
+  const chargeLines = (booking.booking_charges || []).map((row) => ({ label: row.description, amount: row.amount }))
+  const lines = [...packageLines, ...chargeLines]
+  const payment = (booking.payments || []).find((row) => row.id === result.payment_id)
+  const receiptNo = payment?.receipt_no || result.payment_id || '—'
+  const paidAt = payment?.paid_at ? new Date(payment.paid_at).toLocaleString('en-PH') : new Date().toLocaleString('en-PH')
+
   return `
     <html>
       <head>
-        <title>${booking.reference} receipt</title>
+        <title>${escapeHtml(booking.reference)} receipt</title>
         <style>
           body { font-family: Georgia, serif; padding: 24px; color: #10243a; }
           h1 { font-size: 22px; margin: 0 0 4px; }
@@ -53,12 +65,16 @@ function receiptHtml(booking, result, catalog) {
       </head>
       <body>
         <h1>CK Resort & Events Place</h1>
-        <p>St. Duyong, San Simon, Pampanga<br/>Official receipt ${result.payment_id ? '' : ''}</p>
-        <p><b>${booking.reference}</b> · ${booking.guest_name}<br/>${booking.package_label}<br/>${booking.stay_date}</p>
+        <p>St. Duyong, San Simon, Pampanga<br/>Official Receipt No. ${escapeHtml(receiptNo)} · ${escapeHtml(paidAt)}</p>
+        <p><b>${escapeHtml(booking.reference)}</b> · ${escapeHtml(booking.guest_name)}<br/>${escapeHtml(booking.package_label)}<br/>${escapeHtml(booking.stay_date)}</p>
         <table>
-          ${lines.map((line) => `<tr><td>${line.label}</td><td class="right">${peso(line.amount)}</td></tr>`).join('')}
+          ${lines.map((line) => `<tr><td>${escapeHtml(line.label)}</td><td class="right">${peso(line.amount)}</td></tr>`).join('') || '<tr><td colspan="2">No itemized lines on file.</td></tr>'}
         </table>
-        <p>Collected now: <b>${peso(result.due)}</b><br/>Change: ${peso(result.change)}</p>
+        <p>
+          Collected now: <b>${peso(result.due)}</b>
+          ${tendered ? `<br/>Cash: ${peso(tendered.cash)} · E-wallet: ${peso(tendered.ewallet)}` : ''}
+          <br/>Change: ${peso(result.change)}
+        </p>
         <p>Thank you for staying with us.</p>
         <script>window.print()</script>
       </body>
@@ -176,15 +192,17 @@ export default function FrontDeskCashier({ session, onSignOut }) {
     setDone('')
     setBusy('collect')
     try {
+      const tendered = { cash: Number(cash) || 0, ewallet: Number(ewallet) || 0 }
       const result = await checkInBooking(booking.id, {
         actualPax,
         extraHours,
-        cash: Number(cash) || 0,
-        ewallet: Number(ewallet) || 0,
+        cash: tendered.cash,
+        ewallet: tendered.ewallet,
       })
       setDone(`${booking.guest_name} is checked in. ${peso(result.due)} collected.`)
-      setReceipt({ booking, result })
-      await reload()
+      const rows = await reload()
+      const receiptBooking = rows.find((item) => item.id === booking.id) || booking
+      setReceipt({ booking: receiptBooking, result, tendered })
     } catch (err) {
       setError(rpcError(err))
     } finally {
@@ -205,14 +223,16 @@ export default function FrontDeskCashier({ session, onSignOut }) {
     setDone('')
     setBusy('checkout')
     try {
+      const tendered = { cash: Number(cash) || 0, ewallet: Number(ewallet) || 0 }
       const result = await checkOutBooking(booking.id, {
-        cash: Number(cash) || 0,
-        ewallet: Number(ewallet) || 0,
+        cash: tendered.cash,
+        ewallet: tendered.ewallet,
       })
       const doneLabel = result.booking?.status === 'completed' ? 'Stay completed' : 'Checked out'
       setDone(`${booking.guest_name} · ${doneLabel}. ${peso(result.due)} collected.`)
-      setReceipt({ booking, result })
-      await reload()
+      const rows = await reload()
+      const receiptBooking = rows.find((item) => item.id === booking.id) || booking
+      setReceipt({ booking: receiptBooking, result, tendered })
     } catch (err) {
       setError(rpcError(err))
     } finally {
@@ -476,7 +496,11 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                     className="desk-ghost"
                     onClick={() => {
                       const popup = window.open('', 'receipt')
-                      popup.document.write(receiptHtml(receipt.booking, receipt.result, catalog))
+                      if (!popup) {
+                        setError('Allow pop-ups for this site to print the receipt.')
+                        return
+                      }
+                      popup.document.write(receiptHtml(receipt.booking, receipt.result, receipt.tendered))
                       popup.document.close()
                     }}
                   >
