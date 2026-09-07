@@ -292,7 +292,9 @@ export default function CustomerGuest({ session, onSignOut }) {
     try {
       const { checkoutUrl } = await startDownpayment(booking.id)
       setSaved('Opening PayMongo checkout…')
-      window.location.href = checkoutUrl
+      // replace() instead of href= so the workspace is not left behind the
+      // gateway in history — Back would otherwise land on PayMongo's receipt.
+      window.location.replace(checkoutUrl)
     } catch (err) {
       setError(rpcError(err))
       setBusy('')

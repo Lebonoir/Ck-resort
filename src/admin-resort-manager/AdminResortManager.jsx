@@ -24,9 +24,11 @@ import {
 } from '../lib/api'
 import { peso, prettyDate, prettyDateTime, rpcError, STATUS_LABELS, statusTone, verifiedPaid } from '../lib/format'
 import UsersPanel from './UsersPanel'
+import AnalyticsPanel from './AnalyticsPanel'
+import SchedulePanel from './SchedulePanel'
 import './admin.css'
 
-const NAV = ['Dashboard', 'Approvals', 'Users', 'Rates', 'Reports']
+const NAV = ['Dashboard', 'Approvals', 'Analytics', 'Schedule', 'Users', 'Rates', 'Reports']
 
 export default function AdminResortManager({ session, onSignOut }) {
   const confirm = useConfirm()
@@ -118,7 +120,7 @@ export default function AdminResortManager({ session, onSignOut }) {
         }
       />
 
-      {active !== 'Users' ? (
+      {!['Users', 'Analytics', 'Schedule'].includes(active) ? (
         <div className="stats">
           <Stat label="Pending" value={String(metrics?.pending ?? pending.length)} hint="In queue" />
           <Stat label="Occupancy" value={`${metrics?.occupancy ?? 0}%`} hint="Rooms occupied" />
@@ -399,6 +401,19 @@ export default function AdminResortManager({ session, onSignOut }) {
         <UsersPanel
           users={users}
           onReload={reload}
+          onError={setError}
+          onSaved={(message) => {
+            setError('')
+            setSaved(message)
+          }}
+        />
+      )}
+
+      {active === 'Analytics' && <AnalyticsPanel onError={setError} />}
+
+      {active === 'Schedule' && (
+        <SchedulePanel
+          bookings={bookings}
           onError={setError}
           onSaved={(message) => {
             setError('')

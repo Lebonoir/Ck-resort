@@ -110,68 +110,43 @@
   gap: 16px;
 }
 
-.cal-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.cal-head button {
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 8px;
-  background: #eef6f9;
-  color: var(--navy);
-  font-size: 18px;
-}
-
-.cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-}
-
-.cal-grid.labels span {
-  text-align: center;
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.cal-grid button {
-  height: 38px;
-  border: 0;
-  border-radius: 10px;
+.room-detail {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
   background: #f4fafc;
+  border: 1px solid #dbe7ee;
+  display: grid;
+  gap: 6px;
+}
+
+.room-detail h4 {
+  margin: 0;
+  font-size: 15px;
   color: var(--navy);
+}
+
+.room-detail p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--navy-mid);
+}
+
+.room-detail-kicker {
+  font-size: 11px !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   font-weight: 700;
-  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  color: var(--muted) !important;
 }
 
-.cal-grid button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 14px rgba(7, 25, 46, 0.1);
+.room-detail-meta {
+  font-weight: 700;
 }
 
-.cal-grid .wk {
-  background: #e7f4c8;
-}
-
-.cal-grid .picked {
-  background: var(--navy);
-  color: #fff;
-}
-
-.cal-grid .busy {
-  opacity: 0.38;
-  text-decoration: line-through;
-  background: repeating-linear-gradient(-45deg, #f4fafc, #f4fafc 4px, #e7eef2 4px, #e7eef2 8px);
-}
-
-.cal-grid .past {
-  opacity: 0.32;
+.room-detail-note {
+  color: var(--muted) !important;
 }
 
 .stack {

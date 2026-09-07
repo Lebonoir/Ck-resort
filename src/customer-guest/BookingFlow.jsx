@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActionToast } from '../shared/RoleLayout'
 import { useConfirm } from '../shared/ConfirmDialog'
-import { getActiveBooking, getCatalog, getOccupiedDates, quoteBooking, submitBooking } from '../lib/api'
+import {
+  DEFAULT_BOOKING_RULES,
+  getActiveBooking,
+  getBookingRules,
+  getCatalog,
+  getClosedDates,
+  getOccupiedDates,
+  quoteBooking,
+  submitBooking,
+} from '../lib/api'
 import { peso, rpcError } from '../lib/format'
 import { TweenNumber } from '../shared/motion'
+import MonthCalendar, { addDaysIso, manilaTodayIso } from '../shared/MonthCalendar'
 import './booking.css'
 
 const STEPS = ['Package & date', 'Rooms', 'Rentals', 'Review']
@@ -19,18 +29,6 @@ const OVERNIGHT_SHIFTS = [
   { id: '6:00 PM – 4:00 PM', label: '6:00 PM – 4:00 PM' },
 ]
 
-function daysInMonth(year, month) {
-  return new Date(year, month + 1, 0).getDate()
-}
-
-function isoDate(year, month, day) {
-  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-}
-
-function manilaTodayIso() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
-}
-
 function slotStartMs(iso, tour, shift, eventWhen) {
   let hour = 8
   if (tour === 'night' || (tour === 'event' && eventWhen === 'night')) hour = 17
@@ -42,61 +40,14 @@ function slotStartMs(iso, tour, shift, eventWhen) {
   return new Date(`${iso}T${String(hour).padStart(2, '0')}:00:00+08:00`).getTime()
 }
 
-function Calendar({ value, onChange, blocked, todayStarted }) {
-  const start = new Date()
-  const [cursor, setCursor] = useState(new Date(start.getFullYear(), start.getMonth(), 1))
-  const year = cursor.getFullYear()
-  const month = cursor.getMonth()
-  const first = new Date(year, month, 1).getDay()
-  const total = daysInMonth(year, month)
-  const cells = Array.from({ length: first }, () => null).concat(Array.from({ length: total }, (_, index) => index + 1))
-  const today = manilaTodayIso()
-
-  return (
-    <div className="cal">
-      <div className="cal-head">
-        <button type="button" onClick={() => setCursor(new Date(year, month - 1, 1))}>
-          ‹
-        </button>
-        <strong>{cursor.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })}</strong>
-        <button type="button" onClick={() => setCursor(new Date(year, month + 1, 1))}>
-          ›
-        </button>
-      </div>
-      <div className="cal-grid labels">
-        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-          <span key={`${day}-${index}`}>{day}</span>
-        ))}
-      </div>
-      <div className="cal-grid">
-        {cells.map((day, index) => {
-          if (!day) return <span key={`e-${index}`} />
-          const iso = isoDate(year, month, day)
-          const taken = blocked.has(iso)
-          const past = iso < today || (iso === today && todayStarted)
-          const weekend = [0, 5, 6].includes(new Date(`${iso}T00:00:00`).getDay())
-          return (
-            <button
-              key={iso}
-              type="button"
-              disabled={taken || past}
-              className={`${value === iso ? 'picked' : ''} ${weekend ? 'wk' : ''} ${taken ? 'busy' : ''} ${past ? 'past' : ''}`}
-              onClick={() => onChange(iso)}
-            >
-              {day}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 export default function BookingFlow({ onDone, onHasActive, initialTourType = 'day' }) {
   const confirm = useConfirm()
   const [step, setStep] = useState(0)
   const [catalog, setCatalog] = useState(null)
   const [occupied, setOccupied] = useState([])
+  const [closures, setClosures] = useState([])
+  const [rules, setRules] = useState(DEFAULT_BOOKING_RULES)
+  const [detailUnitId, setDetailUnitId] = useState('')
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(null)
@@ -115,21 +66,32 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
     caterer_id: '',
   })
 
+  const today = manilaTodayIso()
+
   useEffect(() => {
     let active = true
-    Promise.all([
-      getCatalog(),
-      getOccupiedDates(new Date().toISOString().slice(0, 10), '2028-12-31'),
-      getActiveBooking(),
-    ])
-      .then(([nextCatalog, dates, stay]) => {
+    getBookingRules()
+      .then((next) => {
         if (!active) return
+        setRules(next)
+        const horizon = addDaysIso(today, next.max_advance_days)
+        return Promise.all([
+          getCatalog(),
+          getOccupiedDates(today, horizon),
+          getClosedDates(today, horizon),
+          getActiveBooking(),
+        ])
+      })
+      .then((result) => {
+        if (!active || !result) return
+        const [nextCatalog, dates, shut, stay] = result
         if (stay) {
           onHasActive?.(stay)
           return
         }
         setCatalog(nextCatalog)
         setOccupied(Array.isArray(dates) ? dates : [])
+        setClosures(Array.isArray(shut) ? shut : [])
       })
       .catch((err) => setError(rpcError(err)))
     return () => {
@@ -169,6 +131,43 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
     })
     return set
   }, [occupied, booking.tour_type, booking.event_when])
+
+  const closed = useMemo(() => new Map(closures.map((row) => [row.date, row.reason])), [closures])
+  const maxDate = useMemo(() => addDaysIso(today, rules.max_advance_days), [today, rules.max_advance_days])
+  const maxPax = rules.max_pax?.[booking.tour_type] ?? 150
+  const maxExtraHours = rules.max_extra_hours
+
+  // A slot must still be at least `min_lead_hours` away to be bookable.
+  const tooSoon = useMemo(() => {
+    const leadMs = rules.min_lead_hours * 3600 * 1000
+    return (iso) =>
+      slotStartMs(iso, booking.tour_type, booking.overnight_shift, booking.event_when) - leadMs < Date.now()
+  }, [rules.min_lead_hours, booking.tour_type, booking.overnight_shift, booking.event_when])
+
+  const dayState = useMemo(
+    () => (iso) => {
+      if (closed.has(iso)) {
+        return { className: 'shut', disabled: true, title: `Resort closed · ${closed.get(iso) || 'closed'}` }
+      }
+      if (blocked.has(iso)) {
+        return { className: 'busy', disabled: true, title: 'That slot is already booked' }
+      }
+      if (tooSoon(iso)) {
+        return { className: 'past', disabled: true, title: 'Too close to the start time' }
+      }
+      return {}
+    },
+    [closed, blocked, tooSoon],
+  )
+
+  // Switching package can pull the current picks outside the new limits.
+  useEffect(() => {
+    const fixes = {}
+    if (booking.pax > maxPax) fixes.pax = maxPax
+    if (booking.extra_hours > maxExtraHours) fixes.extra_hours = maxExtraHours
+    if (booking.stay_date && (tooSoon(booking.stay_date) || closed.has(booking.stay_date))) fixes.stay_date = ''
+    if (Object.keys(fixes).length) setBooking((current) => ({ ...current, ...fixes }))
+  }, [maxPax, maxExtraHours, tooSoon, closed])
 
   function patch(next) {
     setBooking((current) => ({ ...current, ...next }))
@@ -266,6 +265,9 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
       catalog.rooms.find((item) => item.id === unit.room_id)?.slug === 'gazebo',
   )
 
+  const detailUnit = (catalog.units || []).find((unit) => unit.id === detailUnitId) || null
+  const detailRoom = detailUnit ? catalog.rooms.find((room) => room.id === detailUnit.room_id) : null
+
   return (
     <div className="book">
       <ActionToast
@@ -303,25 +305,45 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
                 ))}
               </div>
               <div className="split">
-                <Calendar
+                <MonthCalendar
                   value={booking.stay_date}
                   onChange={(stay_date) => patch({ stay_date })}
-                  blocked={blocked}
-                  todayStarted={Date.now() >= slotStartMs(manilaTodayIso(), booking.tour_type, booking.overnight_shift, booking.event_when)}
+                  minDate={today}
+                  maxDate={maxDate}
+                  dayState={dayState}
+                  legend={[
+                    { kind: 'open', label: 'Available' },
+                    { kind: 'picked', label: 'Selected' },
+                    { kind: 'busy', label: 'Occupied' },
+                    { kind: 'shut', label: 'Closed' },
+                  ]}
                 />
                 <div className="stack">
                   <label className="counter">
-                    <span>Guest pax</span>
+                    <span>Guest pax · up to {maxPax}</span>
                     <div>
-                      <button type="button" onClick={() => patch({ pax: Math.max(1, booking.pax - 1) })}>
+                      <button
+                        type="button"
+                        disabled={booking.pax <= 1}
+                        onClick={() => patch({ pax: Math.max(1, booking.pax - 1) })}
+                      >
                         −
                       </button>
                       <strong>{booking.pax}</strong>
-                      <button type="button" onClick={() => patch({ pax: Math.min(200, booking.pax + 1) })}>
+                      <button
+                        type="button"
+                        disabled={booking.pax >= maxPax}
+                        onClick={() => patch({ pax: Math.min(maxPax, booking.pax + 1) })}
+                      >
                         +
                       </button>
                     </div>
                   </label>
+                  {booking.pax >= maxPax ? (
+                    <p className="hint">
+                      {maxPax} guests is the online maximum for this package. Call the resort for larger groups.
+                    </p>
+                  ) : null}
                   {booking.tour_type === 'overnight' && (
                     <div className="option-col">
                       <p>22-hour shift</p>
@@ -366,17 +388,29 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
                     </div>
                   )}
                   <label className="counter">
-                    <span>Extra hours</span>
+                    <span>Extra hours · up to {maxExtraHours}</span>
                     <div>
-                      <button type="button" onClick={() => patch({ extra_hours: Math.max(0, booking.extra_hours - 1) })}>
+                      <button
+                        type="button"
+                        disabled={booking.extra_hours <= 0}
+                        onClick={() => patch({ extra_hours: Math.max(0, booking.extra_hours - 1) })}
+                      >
                         −
                       </button>
                       <strong>{booking.extra_hours}</strong>
-                      <button type="button" onClick={() => patch({ extra_hours: booking.extra_hours + 1 })}>
+                      <button
+                        type="button"
+                        disabled={booking.extra_hours >= maxExtraHours}
+                        onClick={() => patch({ extra_hours: Math.min(maxExtraHours, booking.extra_hours + 1) })}
+                      >
                         +
                       </button>
                     </div>
                   </label>
+                  <p className="hint">
+                    Bookings open {rules.max_advance_days} days ahead and need at least {rules.min_lead_hours} hour
+                    {rules.min_lead_hours === 1 ? '' : 's'} of lead time.
+                  </p>
                 </div>
               </div>
             </>
@@ -393,7 +427,10 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
                     type="button"
                     disabled={locked}
                     className={`room ${booking.room_unit_ids.includes(unit.id) ? 'on' : ''} ${locked ? 'locked' : ''}`}
-                    onClick={() => toggleUnit(unit.id, room)}
+                    onClick={() => {
+                      setDetailUnitId(unit.id)
+                      toggleUnit(unit.id, room)
+                    }}
                   >
                     <b>
                       {room.name} · {unit.name}
@@ -517,6 +554,24 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
               </strong>
             </div>
           </div>
+
+          {detailUnit ? (
+            <div className="room-detail">
+              <p className="room-detail-kicker">Room details</p>
+              <h4>
+                {detailRoom?.name} · {detailUnit.name}
+              </h4>
+              <p className="room-detail-meta">
+                {peso(detailUnit.rate)} · sleeps {detailUnit.capacity || '—'}
+                {detailUnit.bed_count ? ` · ${detailUnit.bed_count} bed${detailUnit.bed_count === 1 ? '' : 's'}` : ''}
+              </p>
+              {detailUnit.description ? <p>{detailUnit.description}</p> : null}
+              {detailRoom?.description ? <p className="room-detail-note">{detailRoom.description}</p> : null}
+              {!detailUnit.description && !detailRoom?.description ? (
+                <p className="room-detail-note">No description saved for this room yet.</p>
+              ) : null}
+            </div>
+          ) : null}
         </aside>
       </div>
     </div>

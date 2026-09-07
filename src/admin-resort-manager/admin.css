@@ -315,6 +315,172 @@
   gap: 8px;
 }
 
+.analytics-page,
+.schedule-page {
+  display: grid;
+  gap: 14px;
+}
+
+.schedule-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.schedule-form {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.schedule-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.schedule-form input {
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  background: #fff;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.analytics-filters {
+  display: flex;
+  /* App.css styles bare `form` as a column — force row back for this filter bar. */
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+
+.analytics-filters label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex: 1 1 180px;
+}
+
+.analytics-filters input {
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--ink);
+  background: #fff;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.analytics-filters .admin-save {
+  flex: 0 0 auto;
+}
+
+.analytics-page .ticket-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.analytics-page .ticket-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.analytics-page .ticket-lines li b {
+  color: var(--navy);
+}
+
+.analytics-page .ticket-lines .ticket-subtotal {
+  font-weight: 700;
+  color: var(--navy);
+  border-bottom: 0;
+}
+
+.analytics-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.analytics-bars li {
+  display: grid;
+  grid-template-columns: minmax(96px, 150px) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.analytics-bar-label {
+  color: var(--navy);
+  font-weight: 600;
+  text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-track {
+  height: 10px;
+  border-radius: 99px;
+  background: #eaf3f7;
+  overflow: hidden;
+}
+
+.analytics-fill {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #3ec6e0, #1c9a6a);
+  min-width: 2px;
+  transition: width 0.4s ease;
+}
+
+.analytics-page .chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.analytics-page .mini {
+  border: 1.5px solid var(--line);
+  background: #fff;
+  border-radius: 99px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy-mid);
+}
+
+.analytics-page .mini:hover {
+  border-color: var(--aqua);
+}
+
 @media (max-width: 980px) {
   .admin-split,
   .rate-grid {
@@ -323,5 +489,14 @@
 
   .users-toolbar {
     flex-direction: column;
+  }
+
+  .analytics-bars li {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .schedule-split {
+    grid-template-columns: 1fr;
   }
 }

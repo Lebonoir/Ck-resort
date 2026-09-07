@@ -4,8 +4,18 @@ import { useConfirm } from './ConfirmDialog'
 import { CountUp } from './motion'
 import './workspace.css'
 
-export function ActionToast({ message, tone = 'ok', busy = false }) {
-  if (!message && !busy) return null
+export function ActionToast({ message, tone = 'ok', busy = false, timeout = 4000 }) {
+  const [hidden, setHidden] = useState(false)
+
+  // Re-show on every new message, then fade the settled toast out on its own.
+  useEffect(() => {
+    setHidden(false)
+    if (!message || busy) return undefined
+    const timer = setTimeout(() => setHidden(true), timeout)
+    return () => clearTimeout(timer)
+  }, [message, busy, timeout])
+
+  if ((!message && !busy) || hidden) return null
 
   return (
     <div className={`action-toast ${busy ? 'busy' : tone}`} role="status" aria-live="polite">
@@ -40,6 +50,8 @@ const ICONS = {
   Dashboard: GridIcon,
   Notifications: ListIcon,
   Receipts: CardIcon,
+  Analytics: GridIcon,
+  Schedule: CalendarIcon,
 }
 
 function HomeIcon() {

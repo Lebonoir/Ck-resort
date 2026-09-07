@@ -1,0 +1,125 @@
+.cal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.cal-head strong {
+  color: var(--navy);
+}
+
+.cal-head button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #eef6f9;
+  color: var(--navy);
+  font-size: 18px;
+}
+
+.cal-head button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.cal-grid.labels span {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.cal-grid button {
+  height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: #f4fafc;
+  color: var(--navy);
+  font-weight: 700;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cal-grid button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 14px rgba(7, 25, 46, 0.1);
+}
+
+.cal-grid button:disabled {
+  cursor: not-allowed;
+}
+
+.cal-grid .wk {
+  background: #e7f4c8;
+}
+
+.cal-grid .picked {
+  background: var(--navy);
+  color: #fff;
+}
+
+.cal-grid .busy {
+  opacity: 0.38;
+  text-decoration: line-through;
+  background: repeating-linear-gradient(-45deg, #f4fafc, #f4fafc 4px, #e7eef2 4px, #e7eef2 8px);
+}
+
+.cal-grid .past {
+  opacity: 0.32;
+}
+
+.cal-grid .shut {
+  background: repeating-linear-gradient(-45deg, #fdecec, #fdecec 4px, #f7d7d7 4px, #f7d7d7 8px);
+  color: #a2333a;
+  opacity: 0.85;
+}
+
+.cal-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cal-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-legend .key {
+  width: 14px;
+  height: 14px;
+  border-radius: 5px;
+  display: inline-block;
+  border: 1px solid #dbe7ee;
+}
+
+.cal-legend .key.open {
+  background: #f4fafc;
+}
+
+.cal-legend .key.picked {
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+.cal-legend .key.busy {
+  background: repeating-linear-gradient(-45deg, #f4fafc, #f4fafc 3px, #e7eef2 3px, #e7eef2 6px);
+}
+
+.cal-legend .key.shut {
+  background: repeating-linear-gradient(-45deg, #fdecec, #fdecec 3px, #f7d7d7 3px, #f7d7d7 6px);
+  border-color: #f2c9c9;
+}

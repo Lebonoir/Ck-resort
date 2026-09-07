@@ -49,6 +49,15 @@
   gap: 8px;
 }
 
+.ticket-lines .ticket-subtotal {
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.ticket-lines .ticket-paid b {
+  color: #1c9a6a;
+}
+
 .desk-list button {
   width: 100%;
   border: 1.5px solid transparent;

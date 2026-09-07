@@ -57,6 +57,66 @@ export async function getOccupiedDates(from, to) {
   return rpc('occupied_dates', { p_from: from, p_to: to })
 }
 
+export const DEFAULT_BOOKING_RULES = {
+  max_advance_days: 365,
+  min_lead_hours: 4,
+  max_extra_hours: 6,
+  max_pax: { day: 150, night: 150, overnight: 70, event: 200 },
+}
+
+export async function getBookingRules() {
+  try {
+    const data = await rpc('booking_rules')
+    return { ...DEFAULT_BOOKING_RULES, ...(data || {}) }
+  } catch {
+    // booking_rules.sql may not be applied yet.
+    return DEFAULT_BOOKING_RULES
+  }
+}
+
+export async function getClosedDates(from, to) {
+  try {
+    return (await rpc('closed_dates', { p_from: from, p_to: to })) || []
+  } catch {
+    return []
+  }
+}
+
+export async function listClosures() {
+  const { data, error } = await supabase
+    .from('resort_closures')
+    .select('*')
+    .order('closure_date', { ascending: true })
+  // booking_rules.sql may not be applied yet — the limits form still works without it.
+  if (error && /does not exist|schema cache|PGRST205/i.test(`${error.message} ${error.code}`)) return []
+  throwIf(error)
+  return data
+}
+
+export async function addClosure(date, reason) {
+  return rpc('admin_add_closure', { p_date: date, p_reason: reason })
+}
+
+export async function removeClosure(date) {
+  return rpc('admin_remove_closure', { p_date: date })
+}
+
+export async function saveBookingRules(rules) {
+  return rpc('admin_save_booking_rules', {
+    p_max_advance_days: rules.max_advance_days,
+    p_min_lead_hours: rules.min_lead_hours,
+    p_max_extra_hours: rules.max_extra_hours,
+    p_max_pax_day: rules.max_pax.day,
+    p_max_pax_night: rules.max_pax.night,
+    p_max_pax_overnight: rules.max_pax.overnight,
+    p_max_pax_event: rules.max_pax.event,
+  })
+}
+
+export async function adminAnalytics(from, to) {
+  return rpc('admin_analytics', { p_from: from, p_to: to })
+}
+
 export async function quoteBooking(payload) {
   return rpc('quote_booking', { payload })
 }

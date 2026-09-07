@@ -134,11 +134,20 @@ function OtpBoxes({ value, onChange }) {
             setDigit(index, digit)
             if (digit) inputs.current[index + 1]?.focus()
           }}
+          onPaste={(event) => {
+            const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+            if (!pasted) return
+            event.preventDefault()
+            onChange(pasted)
+            inputs.current[Math.min(pasted.length, 5)]?.focus()
+          }}
           onKeyDown={(event) => {
             if (event.key === 'Backspace' && !value[index] && index > 0) {
               setDigit(index - 1, '')
               inputs.current[index - 1]?.focus()
             }
+            if (event.key === 'ArrowLeft' && index > 0) inputs.current[index - 1]?.focus()
+            if (event.key === 'ArrowRight' && index < 5) inputs.current[index + 1]?.focus()
           }}
           aria-label={`Digit ${index + 1}`}
         />
@@ -156,6 +165,9 @@ export default function AuthPage({ onBack, recovery = false }) {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [otp, setOtp] = useState('')
+  // Which OTP we are verifying: 'signup' confirms a new account, 'recovery' unlocks a password reset.
+  const [otpMode, setOtpMode] = useState('signup')
+  const [otpEmail, setOtpEmail] = useState('')
   const [seconds, setSeconds] = useState(0)
   const [shake, setShake] = useState(false)
   const [info, setInfo] = useState('')
@@ -219,7 +231,12 @@ export default function AuthPage({ onBack, recovery = false }) {
         fail({ email: rpcError(error) })
         return
       }
-      setInfo('If that email exists, a reset link is on the way. Check your inbox.')
+      setOtpMode('recovery')
+      setOtpEmail(login.email)
+      setOtp('')
+      setStep('otp')
+      setSeconds(45)
+      setInfo(`We sent a 6-digit reset code to ${login.email}.`)
       return
     }
 
@@ -248,6 +265,9 @@ export default function AuthPage({ onBack, recovery = false }) {
         return
       }
       if (data.session) return
+      setOtpMode('signup')
+      setOtpEmail(signup.email)
+      setOtp('')
       setStep('otp')
       setSeconds(45)
       setInfo(`We sent a 6-digit code to ${signup.email}.`)
@@ -275,16 +295,19 @@ export default function AuthPage({ onBack, recovery = false }) {
     event.preventDefault()
     setLoading(true)
     const { error } = await supabase.auth.verifyOtp({
-      email: signup.email,
+      email: otpEmail,
       token: otp,
-      type: 'signup',
+      type: otpMode,
     })
     setLoading(false)
     if (error) {
       fail({ otp: rpcError(error) })
       return
     }
-    setStep('welcome')
+    // A verified recovery code signs the user in just long enough to set a new password.
+    setInfo('')
+    setErrors({})
+    setStep(otpMode === 'recovery' ? 'reset' : 'welcome')
   }
 
   async function saveNewPassword(event) {
@@ -309,7 +332,10 @@ export default function AuthPage({ onBack, recovery = false }) {
 
   async function resend() {
     setLoading(true)
-    const { error } = await supabase.auth.resend({ type: 'signup', email: signup.email })
+    const { error } =
+      otpMode === 'recovery'
+        ? await supabase.auth.resetPasswordForEmail(otpEmail, { redirectTo: `${site}/?reset=1` })
+        : await supabase.auth.resend({ type: 'signup', email: otpEmail })
     setLoading(false)
     if (error) fail({ otp: rpcError(error) })
     else setSeconds(45)
@@ -377,7 +403,7 @@ export default function AuthPage({ onBack, recovery = false }) {
                   {mode === 'signup'
                     ? 'Guests can create an account here. Staff and admin accounts are created by the resort manager, then sign in with email and password.'
                     : mode === 'forgot'
-                      ? 'Enter your email and we will send a reset link. You will then set a new password.'
+                      ? 'Enter your email and we will send a 6-digit code. Enter the code, then set a new password.'
                       : 'Use the email and password on your account. Sessions stay signed in on this device.'}
                 </p>
               </div>
@@ -488,7 +514,7 @@ export default function AuthPage({ onBack, recovery = false }) {
                     : mode === 'signup'
                       ? 'Create account'
                       : mode === 'forgot'
-                        ? 'Send reset link'
+                        ? 'Send reset code'
                         : 'Sign in'}
                 </button>
               </form>
@@ -498,11 +524,13 @@ export default function AuthPage({ onBack, recovery = false }) {
           {step === 'otp' && (
             <form className="otp-step" onSubmit={verifyOtp}>
               <button type="button" className="text-link back" onClick={() => setStep('form')}>
-                ← Back to details
+                ← Back to {otpMode === 'recovery' ? 'sign in' : 'details'}
               </button>
-              <div className="otp-badge">Step 2 of 2 · Verify</div>
+              <div className="otp-badge">
+                {otpMode === 'recovery' ? 'Step 1 of 2 · Verify' : 'Step 2 of 2 · Verify'}
+              </div>
               <h2>Check your inbox</h2>
-              <p>{info || `Enter the 6-digit code sent to ${signup.email}.`}</p>
+              <p>{info || `Enter the 6-digit code sent to ${otpEmail}.`}</p>
               <OtpBoxes
                 value={otp}
                 onChange={(value) => {

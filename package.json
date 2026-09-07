@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "db:setup": "node scripts/apply-schema.mjs",
-    "db:lifecycle": "node scripts/apply-lifecycle.mjs"
+    "db:lifecycle": "node scripts/apply-lifecycle.mjs",
+    "db:rules": "node scripts/apply-rules.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

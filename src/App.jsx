@@ -21,9 +21,14 @@ function Gate() {
   const { session, profile, loading, error, signOut } = useAuth()
   const [showAuth, setShowAuth] = useState(false)
   const [recovery, setRecovery] = useState(false)
-  const params = new URLSearchParams(window.location.search)
-  const paymentState = params.get('payment')
-  const paymentBooking = params.get('booking')
+  // Read the gateway's return params once, then scrub them from the URL so a
+  // refresh or a Back press cannot replay the payment screen.
+  const [payment, setPayment] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const state = params.get('payment')
+    if (!state) return null
+    return { state, booking: params.get('booking') }
+  })
 
   useEffect(() => {
     function onRecovery() {
@@ -31,9 +36,16 @@ function Gate() {
       setShowAuth(true)
     }
     window.addEventListener('ck-password-recovery', onRecovery)
+    const params = new URLSearchParams(window.location.search)
     if (params.get('reset') === '1') {
       setRecovery(true)
       setShowAuth(true)
+    }
+    if (params.get('payment') || params.get('reset')) {
+      // Scrub the return params, then leave a spare app entry on top so a Back
+      // press after the gateway round-trip stays inside the workspace.
+      window.history.replaceState({}, '', '/')
+      window.history.pushState({}, '', '/')
     }
     return () => window.removeEventListener('ck-password-recovery', onRecovery)
   }, [])
@@ -53,15 +65,12 @@ function Gate() {
     )
   }
 
-  if (paymentState && session) {
+  if (payment && session) {
     return (
       <PaymentReturn
-        bookingId={paymentBooking}
-        cancelled={paymentState === 'cancel'}
-        onDone={() => {
-          window.history.replaceState({}, '', '/')
-          window.location.reload()
-        }}
+        bookingId={payment.booking}
+        cancelled={payment.state === 'cancel'}
+        onDone={() => setPayment(null)}
       />
     )
   }

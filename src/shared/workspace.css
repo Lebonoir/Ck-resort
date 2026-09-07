@@ -296,6 +296,15 @@
   gap: 12px;
 }
 
+/* Front desk carries five cards — keep them on a single row. */
+.stats.stats-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.stats .stat:nth-child(5) {
+  animation-delay: 0.24s;
+}
+
 .stat,
 .panel {
   background: #fff;
@@ -844,6 +853,7 @@ button:disabled {
   }
 
   .stats,
+  .stats.stats-5,
   .grid-2 {
     grid-template-columns: 1fr;
   }

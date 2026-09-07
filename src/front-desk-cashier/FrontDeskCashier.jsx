@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActionToast, RoleLayout, Stat } from '../shared/RoleLayout'
 import RentalDispatch from '../shared/RentalDispatch'
+import Housekeeping from '../shared/Housekeeping'
 import { FolderList, groupByMonth } from '../shared/FolderList'
 import { useConfirm } from '../shared/ConfirmDialog'
 import {
@@ -13,12 +14,15 @@ import {
   getCatalog,
   listBookings,
   listDispatches,
+  listRoomUnits,
   returnRental,
+  setRoomStatus,
 } from '../lib/api'
 import { peso, prettyDate, rpcError, STATUS_LABELS, verifiedPaid } from '../lib/format'
+import '../resort-operations-staff/staff.css'
 import './front-desk.css'
 
-const NAV = ['POS & Check-in', 'Rental dispatch', 'Receipts']
+const NAV = ['POS & Check-in', 'Rental dispatch', 'Housekeeping', 'Receipts']
 
 function Counter({ label, value, onChange, min = 0 }) {
   return (
@@ -88,6 +92,7 @@ export default function FrontDeskCashier({ session, onSignOut }) {
   const [bookings, setBookings] = useState([])
   const [catalog, setCatalog] = useState(null)
   const [logs, setLogs] = useState([])
+  const [rooms, setRooms] = useState([])
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState('')
   const [walkIn, setWalkIn] = useState(false)
@@ -105,11 +110,32 @@ export default function FrontDeskCashier({ session, onSignOut }) {
   const [receipt, setReceipt] = useState(null)
 
   async function reload() {
-    const [nextBookings, nextCatalog, nextLogs] = await Promise.all([listBookings(), getCatalog(), listDispatches()])
+    const [nextBookings, nextCatalog, nextLogs, nextRooms] = await Promise.all([
+      listBookings(),
+      getCatalog(),
+      listDispatches(),
+      listRoomUnits(),
+    ])
     setBookings(nextBookings)
     setCatalog(nextCatalog)
     setLogs(nextLogs)
+    setRooms(nextRooms)
     return nextBookings
+  }
+
+  async function changeRoom(id, status, label) {
+    setError('')
+    setDone('')
+    setBusy(id)
+    try {
+      await setRoomStatus(id, status)
+      await reload()
+      setDone(label)
+    } catch (err) {
+      setError(rpcError(err))
+    } finally {
+      setBusy('')
+    }
   }
 
   useEffect(() => {
@@ -120,7 +146,14 @@ export default function FrontDeskCashier({ session, onSignOut }) {
     `${item.reference} ${item.guest_name}`.toLowerCase().includes(query.toLowerCase()),
   )
   const booking = bookings.find((item) => item.id === selectedId)
-  const arriving = bookings.filter((item) => item.status === 'confirmed')
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+  // Arriving = confirmed and due today. Pending = confirmed for a later date, or still unpaid/unapproved.
+  const arriving = bookings.filter((item) => item.status === 'confirmed' && item.stay_date === today)
+  const upcoming = bookings.filter((item) => item.status === 'confirmed' && item.stay_date > today)
+  const awaiting = bookings.filter((item) =>
+    ['pending_approval', 'awaiting_downpayment'].includes(item.status),
+  )
+  const pending = [...upcoming, ...awaiting]
   const inside = bookings.filter((item) => item.status === 'checked_in')
   const extraPaxRate = catalog?.rates.find((row) => row.key === (booking?.tour_type === 'overnight' ? 'extra_pax_overnight' : 'extra_pax_tour'))?.amount || 200
   const hourRate = catalog?.rates.find((row) => row.key === 'extra_hour')?.amount || 1000
@@ -133,8 +166,10 @@ export default function FrontDeskCashier({ session, onSignOut }) {
     const excess = checkedIn ? Number(booking.excess_pax || 0) : Math.max(actualPax - booking.pax, 0)
     const charges = (booking.booking_charges || []).reduce((sum, row) => sum + Number(row.amount), 0)
     const hoursFee = (checkedIn ? Number(booking.checkin_extra_hours || 0) : extraHours) * hourRate
-    const due = Math.max(bill - paid + charges + excess * extraPaxRate + hoursFee, 0)
-    return { excess, charges, due, paid, checkedIn }
+    const excessFee = excess * extraPaxRate
+    const total = bill + charges + excessFee + hoursFee
+    const due = Math.max(total - paid, 0)
+    return { excess, charges, excessFee, hoursFee, bill, total, due, paid, checkedIn }
   }, [booking, actualPax, extraHours, extraPaxRate, hourRate])
 
   function pick(item) {
@@ -265,8 +300,9 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                     : error || done
         }
       />
-      <div className="stats">
-        <Stat label="Arriving" value={String(arriving.length)} hint="Still to check in" />
+      <div className="stats stats-5">
+        <Stat label="Arriving today" value={String(arriving.length)} hint="Confirmed for today" />
+        <Stat label="Pending" value={String(pending.length)} hint="Future & unpaid" />
         <Stat label="On property" value={String(inside.length)} hint="Checked in" />
         <Stat label="Rentals out" value={String(logs.filter((item) => item.status === 'out').length)} hint="Awaiting return" />
         <Stat
@@ -289,15 +325,25 @@ export default function FrontDeskCashier({ session, onSignOut }) {
               empty="No bookings match that search."
               listClassName="desk-list"
               groups={[
-                { id: 'arriving', label: 'Arriving', items: list.filter((item) => item.status === 'confirmed'), defaultOpen: true },
+                {
+                  id: 'arriving',
+                  label: 'Arriving today',
+                  items: list.filter((item) => item.status === 'confirmed' && item.stay_date === today),
+                  defaultOpen: true,
+                },
                 {
                   id: 'inside',
                   label: 'On property',
                   items: list.filter((item) => item.status === 'checked_in' || item.status === 'checked_out'),
                 },
                 {
+                  id: 'pending',
+                  label: 'Pending (upcoming)',
+                  items: list.filter((item) => item.status === 'confirmed' && item.stay_date > today),
+                },
+                {
                   id: 'waiting',
-                  label: 'Awaiting',
+                  label: 'Awaiting approval / payment',
                   items: list.filter((item) => item.status === 'pending_approval' || item.status === 'awaiting_downpayment'),
                 },
                 {
@@ -449,12 +495,34 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                 </button>
                 <ul className="ticket-lines">
                   <li>
-                    <span>Package remaining</span>
-                    <b>{peso(Math.max(Number(booking.override_amount ?? booking.total_amount) - preview.paid, 0))}</b>
+                    <span>Package</span>
+                    <b>{peso(preview.bill)}</b>
                   </li>
-                  <li>
-                    <span>On-site charges</span>
-                    <b>{peso(preview.charges)}</b>
+                  {preview.charges > 0 ? (
+                    <li>
+                      <span>On-site charges</span>
+                      <b>{peso(preview.charges)}</b>
+                    </li>
+                  ) : null}
+                  {preview.excessFee > 0 ? (
+                    <li>
+                      <span>Excess pax × {preview.excess}</span>
+                      <b>{peso(preview.excessFee)}</b>
+                    </li>
+                  ) : null}
+                  {preview.hoursFee > 0 ? (
+                    <li>
+                      <span>Extra hours</span>
+                      <b>{peso(preview.hoursFee)}</b>
+                    </li>
+                  ) : null}
+                  <li className="ticket-subtotal">
+                    <span>Total bill</span>
+                    <b>{peso(preview.total)}</b>
+                  </li>
+                  <li className="ticket-paid">
+                    <span>Already paid</span>
+                    <b>−{peso(preview.paid)}</b>
                   </li>
                 </ul>
                 <div className="ticket-due">
@@ -549,6 +617,10 @@ export default function FrontDeskCashier({ session, onSignOut }) {
             }
           }}
         />
+      )}
+
+      {active === 'Housekeeping' && (
+        <Housekeeping rooms={rooms} bookings={bookings} busy={busy} onChangeStatus={changeRoom} />
       )}
 
       {active === 'Receipts' && (
