@@ -145,6 +145,14 @@ export async function createWalkIn(payload) {
   return rpc('create_walk_in', { payload })
 }
 
+// Ticks the SQL lifecycle: expiries, no-shows, auto checkout, housekeeping.
+// Returns `{ processed }` so callers can skip a refetch when nothing moved.
+export async function advanceLifecycle() {
+  const { data, error } = await supabase.rpc('advance_booking_lifecycle')
+  if (error) throw new Error(rpcError(error))
+  return data
+}
+
 export async function listBookings() {
   try {
     await supabase.rpc('advance_booking_lifecycle')
@@ -475,4 +483,42 @@ export async function verifyDownpayment(bookingId) {
   const json = await response.json()
   if (!response.ok) throw new Error(json.error || 'Could not verify payment.')
   return json
+}
+
+export async function addExtraHours(bookingId, hours) {
+  return rpc('add_extra_hours', { p_booking: bookingId, p_hours: hours })
+}
+
+export async function adminAuditLog({ action, from, to, limit = 200 } = {}) {
+  return rpc('admin_audit_log', {
+    p_limit: limit,
+    p_action: action || null,
+    p_from: from || null,
+    p_to: to || null,
+  })
+}
+
+export async function adminAuditActions() {
+  return rpc('admin_audit_actions')
+}
+
+export async function reviewableStays() {
+  try {
+    return (await rpc('guest_reviewable')) || []
+  } catch {
+    // admin_extras.sql may not be applied yet.
+    return []
+  }
+}
+
+export async function submitReview(payload) {
+  return rpc('submit_review', { payload })
+}
+
+export async function reviewStats() {
+  try {
+    return await rpc('admin_review_stats')
+  } catch {
+    return null
+  }
 }

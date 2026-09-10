@@ -1,31 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useConfirm } from './ConfirmDialog'
+import { formatRemain, useNow } from './Countdown'
 
 const FILTERS = ['All', 'Occupied', 'Available', 'Cleaning']
-
-function formatRemain(until, now = Date.now()) {
-  if (!until) return '—'
-  const ms = new Date(until).getTime() - now
-  if (ms <= 0) return 'Due now'
-  const total = Math.floor(ms / 1000)
-  const hours = Math.floor(total / 3600)
-  const minutes = Math.floor((total % 3600) / 60)
-  const seconds = total % 60
-  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`
-  return `${minutes}m ${String(seconds).padStart(2, '0')}s`
-}
 
 // Shared by Resort Operations and the Front Desk, so a receptionist can cover
 // housekeeping when no operations staff is on shift.
 export default function Housekeeping({ rooms, bookings = [], busy, onChangeStatus }) {
   const confirm = useConfirm()
   const [filter, setFilter] = useState('All')
-  const [now, setNow] = useState(Date.now())
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [])
+  const now = useNow()
 
   async function changeRoom(id, status, label) {
     const roomTitle = label.split(' · ')[0]
@@ -93,15 +77,18 @@ export default function Housekeeping({ rooms, bookings = [], busy, onChangeStatu
                   </button>
                 )}
                 {room.status === 'cleaning' && (
-                  <button
-                    type="button"
-                    disabled={Boolean(busy)}
-                    onClick={() =>
-                      changeRoom(room.id, 'available', `${room.rooms?.name || 'Room'} ${room.name} · marked ready.`)
-                    }
-                  >
-                    {busy === room.id ? 'Updating…' : 'Mark ready'}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={Boolean(busy)}
+                      onClick={() =>
+                        changeRoom(room.id, 'available', `${room.rooms?.name || 'Room'} ${room.name} · marked ready.`)
+                      }
+                    >
+                      {busy === room.id ? 'Updating…' : 'Mark ready early'}
+                    </button>
+                    <small className="hk-auto">Frees itself when the timer ends</small>
+                  </>
                 )}
                 {room.status === 'available' && (
                   <button

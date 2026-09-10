@@ -1,8 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Stat } from '../shared/RoleLayout'
 import { FolderList, groupByMonth } from '../shared/FolderList'
-import { adminAnalytics } from '../lib/api'
-import { peso, prettyDate, rpcError, STATUS_LABELS } from '../lib/format'
+import { adminAnalytics, reviewStats } from '../lib/api'
+import { peso, prettyDate, prettyDateTime, rpcError, STATUS_LABELS } from '../lib/format'
+
+const RATING_CATEGORIES = [
+  { key: 'overall', label: 'Overall' },
+  { key: 'cleanliness', label: 'Cleanliness' },
+  { key: 'amenities', label: 'Pool & amenities' },
+  { key: 'staff', label: 'Staff & service' },
+  { key: 'value_rating', label: 'Value for money' },
+]
+
+function StarMeter({ score }) {
+  const rounded = Math.round(Number(score) || 0)
+  return (
+    <span className="star-meter" title={`${score} of 5`}>
+      {[1, 2, 3, 4, 5].map((index) => (
+        <span key={index} className={index <= rounded ? 'on' : ''}>
+          ★
+        </span>
+      ))}
+    </span>
+  )
+}
 
 function todayIso() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
@@ -42,6 +63,7 @@ export default function AnalyticsPanel({ onError }) {
   const [from, setFrom] = useState(() => shiftIso(todayIso(), -29))
   const [to, setTo] = useState(todayIso)
   const [data, setData] = useState(null)
+  const [reviews, setReviews] = useState(null)
   const [loading, setLoading] = useState(false)
 
   const load = useCallback(
@@ -62,6 +84,7 @@ export default function AnalyticsPanel({ onError }) {
 
   useEffect(() => {
     load(from, to)
+    reviewStats().then(setReviews)
   }, [])
 
   function applyPreset(days) {
@@ -233,6 +256,63 @@ export default function AnalyticsPanel({ onError }) {
             </li>
           )}
         />
+      </section>
+
+      <section className="admin-card">
+        <h3>Guest satisfaction</h3>
+        <p className="admin-note">
+          Averages across every rated stay, all time — ratings are collected after a stay is completed, so this is not
+          limited by the date range above.
+        </p>
+        {!reviews || !reviews.total ? (
+          <p className="hint">No ratings submitted yet.</p>
+        ) : (
+          <>
+            <div className="rating-summary">
+              <div className="rating-score">
+                <strong>{Number(reviews.averages.overall).toFixed(2)}</strong>
+                <StarMeter score={reviews.averages.overall} />
+                <small>
+                  {reviews.total} rated {reviews.total === 1 ? 'stay' : 'stays'}
+                </small>
+              </div>
+              <ul className="rating-bars">
+                {RATING_CATEGORIES.map((item) => {
+                  const score = Number(reviews.averages[item.key]) || 0
+                  return (
+                    <li key={item.key}>
+                      <span>{item.label}</span>
+                      <span className="rating-track">
+                        <span className="rating-fill" style={{ width: `${(score / 5) * 100}%` }} />
+                      </span>
+                      <b>{score.toFixed(2)}</b>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+
+            {reviews.recent?.length ? (
+              <ul className="list rating-comments">
+                {reviews.recent
+                  .filter((row) => row.comment)
+                  .slice(0, 8)
+                  .map((row) => (
+                    <li key={`${row.reference}-${row.created_at}`}>
+                      <div>
+                        <b>
+                          {row.reference} · {row.guest}
+                        </b>
+                        <small>“{row.comment}”</small>
+                        <small>{prettyDateTime(row.created_at)}</small>
+                      </div>
+                      <span className="pill">{row.overall}/5</span>
+                    </li>
+                  ))}
+              </ul>
+            ) : null}
+          </>
+        )}
       </section>
     </div>
   )

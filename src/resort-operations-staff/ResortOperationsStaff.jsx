@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ActionToast, RoleLayout, Stat } from '../shared/RoleLayout'
 import RentalDispatch from '../shared/RentalDispatch'
 import Housekeeping from '../shared/Housekeeping'
+import { useLiveData } from '../shared/useLiveData'
 import {
   dispatchRental,
   getCatalog,
@@ -15,7 +16,7 @@ import {
 import { rpcError } from '../lib/format'
 import './staff.css'
 
-const NAV = ['Housekeeping', 'Rental dispatch']
+const NAV = [{ section: 'Operations', items: ['Housekeeping', 'Rental dispatch'] }]
 
 export default function ResortOperationsStaff({ session, onSignOut }) {
   const [active, setActive] = useState('Housekeeping')
@@ -43,6 +44,9 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
   useEffect(() => {
     reload().catch((err) => setError(rpcError(err)))
   }, [])
+
+  // Turnaround timers finish server-side; this pulls the result in.
+  useLiveData(() => reload().catch(() => {}), { channel: 'staff' })
 
   async function changeRoom(id, status, label) {
     setError('')

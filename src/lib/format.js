@@ -94,6 +94,37 @@ export function stayWindowLabel(booking) {
   return '8:00 AM – 4:00 PM'
 }
 
+/**
+ * Scheduled end of a stay, mirroring booking_window_end() in SQL plus any extra
+ * hours bought at the counter. Used for the live countdowns; the SQL lifecycle
+ * remains the authority on when a stay actually closes.
+ */
+export function stayEndsAt(booking) {
+  if (!booking?.stay_date) return null
+  const [year, month, day] = booking.stay_date.split('-').map(Number)
+  const at = (offsetDays, hour) => {
+    const base = new Date(Date.UTC(year, month - 1, day + offsetDays))
+    return new Date(
+      `${base.toISOString().slice(0, 10)}T${String(hour).padStart(2, '0')}:00:00+08:00`,
+    )
+  }
+
+  let end
+  if (booking.tour_type === 'overnight') {
+    const shift = String(booking.overnight_shift || '')
+    if (shift.includes('2:00 PM')) end = at(1, 12)
+    else if (shift.includes('6:00 PM')) end = at(1, 16)
+    else end = at(1, 7)
+  } else if (booking.tour_type === 'night' || (booking.tour_type === 'event' && booking.event_when === 'night')) {
+    end = at(1, 0)
+  } else {
+    end = at(0, 16)
+  }
+
+  const extra = Number(booking.checkin_extra_hours || 0)
+  return extra ? new Date(end.getTime() + extra * 3600 * 1000) : end
+}
+
 export function paymentStatusLabel(booking) {
   const paid = verifiedPaid(booking)
   const total = Number(booking?.override_amount ?? booking?.total_amount)

@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { ActionToast, BellIcon, Panel, RoleLayout, Stat } from '../shared/RoleLayout'
 import { Lightbox } from '../shared/motion'
 import BookingFlow from './BookingFlow'
+import RatingsPanel from './RatingsPanel'
+import { useLiveData } from '../shared/useLiveData'
+import { CountdownPill } from '../shared/Countdown'
 import { FolderList } from '../shared/FolderList'
 import { useConfirm } from '../shared/ConfirmDialog'
 import {
@@ -13,6 +16,7 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  reviewableStays,
   startDownpayment,
   verifyDownpayment,
 } from '../lib/api'
@@ -24,11 +28,15 @@ import {
   prettyDateTime,
   rpcError,
   STATUS_LABELS,
+  stayEndsAt,
   stayWindowLabel,
 } from '../lib/format'
 import './booking.css'
 
-const NAV = ['Home', 'Book a stay', 'My reservations']
+const NAV = [
+  { section: 'Stay', items: ['Home', 'Book a stay'] },
+  { section: 'Account', items: ['My reservations', 'Ratings'] },
+]
 
 const PACKAGES = [
   { id: 'day', label: 'Day tour from', hint: '20 pax · 8:00 AM – 4:00 PM', rateKey: 'day' },
@@ -197,6 +205,18 @@ function ActiveStay({ booking, catalog, onView }) {
           <dt>Status</dt>
           <dd>{STATUS_LABELS[booking.status] || booking.status}</dd>
         </div>
+        {booking.status === 'checked_in' ? (
+          <div>
+            <dt>Time left</dt>
+            <dd>
+              <CountdownPill
+                until={stayEndsAt(booking)}
+                label="Checkout in"
+                doneLabel="Checking out…"
+              />
+            </dd>
+          </div>
+        ) : null}
       </dl>
       <button type="button" className="book-btn" onClick={onView}>
         View reservation
@@ -219,17 +239,20 @@ export default function CustomerGuest({ session, onSignOut }) {
   const [focusId, setFocusId] = useState('')
   const [noticeId, setNoticeId] = useState('')
   const [activeStay, setActiveStay] = useState(null)
+  const [reviewable, setReviewable] = useState([])
 
   async function reload() {
     try {
-      const [nextCatalog, nextBookings, nextNotes] = await Promise.all([
+      const [nextCatalog, nextBookings, nextNotes, nextReviewable] = await Promise.all([
         getCatalog(),
         listBookings(),
         listNotifications(),
+        reviewableStays(),
       ])
       setCatalog(nextCatalog)
       setBookings(nextBookings)
       setNotes(nextNotes)
+      setReviewable(nextReviewable)
       const stay = nextBookings.find((row) => GUEST_ACTIVE_STATUSES.includes(row.status)) || null
       setActiveStay(stay)
       return nextBookings
@@ -242,6 +265,9 @@ export default function CustomerGuest({ session, onSignOut }) {
   useEffect(() => {
     reload()
   }, [])
+
+  // Status changes (approval, auto checkout, completion) arrive on their own.
+  useLiveData(reload, { tables: ['bookings', 'notifications'], channel: 'guest' })
 
   useEffect(() => {
     if (active !== 'My reservations' || !focusId) return
@@ -482,6 +508,15 @@ export default function CustomerGuest({ session, onSignOut }) {
             }}
           />
         )
+      )}
+
+      {active === 'Ratings' && (
+        <RatingsPanel
+          stays={reviewable}
+          onDone={reload}
+          onError={setError}
+          onSaved={setSaved}
+        />
       )}
 
       {active === 'My reservations' && (

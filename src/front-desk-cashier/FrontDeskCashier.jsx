@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { ActionToast, RoleLayout, Stat } from '../shared/RoleLayout'
 import RentalDispatch from '../shared/RentalDispatch'
 import Housekeeping from '../shared/Housekeeping'
+import { useLiveData } from '../shared/useLiveData'
+import { CountdownPill } from '../shared/Countdown'
 import { FolderList, groupByMonth } from '../shared/FolderList'
 import { useConfirm } from '../shared/ConfirmDialog'
 import {
   addCharge,
+  addExtraHours,
   checkInBooking,
   checkOutBooking,
   createWalkIn,
@@ -18,11 +21,14 @@ import {
   returnRental,
   setRoomStatus,
 } from '../lib/api'
-import { peso, prettyDate, rpcError, STATUS_LABELS, verifiedPaid } from '../lib/format'
+import { peso, prettyDate, rpcError, STATUS_LABELS, stayEndsAt, verifiedPaid } from '../lib/format'
 import '../resort-operations-staff/staff.css'
 import './front-desk.css'
 
-const NAV = ['POS & Check-in', 'Rental dispatch', 'Housekeeping', 'Receipts']
+const NAV = [
+  { section: 'Front desk', items: ['POS & Check-in', 'Receipts'] },
+  { section: 'Operations', items: ['Rental dispatch', 'Housekeeping'] },
+]
 
 function Counter({ label, value, onChange, min = 0 }) {
   return (
@@ -142,6 +148,9 @@ export default function FrontDeskCashier({ session, onSignOut }) {
     reload().catch((err) => setError(rpcError(err)))
   }, [])
 
+  // Auto checkout, expiries and housekeeping land here without a refresh.
+  useLiveData(() => reload().catch(() => {}), { channel: 'desk' })
+
   const list = bookings.filter((item) =>
     `${item.reference} ${item.guest_name}`.toLowerCase().includes(query.toLowerCase()),
   )
@@ -176,7 +185,9 @@ export default function FrontDeskCashier({ session, onSignOut }) {
     setWalkIn(false)
     setSelectedId(item.id)
     setActualPax(item.actual_pax || item.pax)
-    setExtraHours(item.checkin_extra_hours || 0)
+    // Once checked in the counter means "hours to add", so it starts at zero.
+    const checkedIn = ['checked_in', 'checked_out'].includes(item.status)
+    setExtraHours(checkedIn ? 0 : item.checkin_extra_hours || 0)
     setCash('')
     setEwallet('')
     setDone('')
@@ -409,6 +420,13 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                   </div>
                   <span className="pill">{STATUS_LABELS[booking.status]}</span>
                 </div>
+                {booking.status === 'checked_in' ? (
+                  <CountdownPill
+                    until={stayEndsAt(booking)}
+                    label="Checkout in"
+                    doneLabel="Checking out automatically…"
+                  />
+                ) : null}
                 {preview.checkedIn ? (
                   <p className="desk-note">Actual pax {booking.actual_pax || booking.pax} · excess {preview.excess}</p>
                 ) : (
@@ -421,7 +439,9 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                 )}
                 {preview.checkedIn ? (
                   <>
-                    <p className="desk-note">Extra hours after arrival are added as charges. Scheduled checkout does not change.</p>
+                    <p className="desk-note">
+                      Extra hours are billed and push the scheduled checkout back, so the automatic checkout waits.
+                    </p>
                     <Counter label={`Extra hours to add · ${peso(hourRate)} / hr`} value={extraHours} onChange={setExtraHours} />
                     <button
                       type="button"
@@ -430,7 +450,7 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                       onClick={async () => {
                         const ok = await confirm({
                           title: 'Add extra hours',
-                          message: `Add ${extraHours} extra hour${extraHours === 1 ? '' : 's'} (${peso(extraHours * hourRate)}) to ${booking.guest_name}'s bill?`,
+                          message: `Add ${extraHours} extra hour${extraHours === 1 ? '' : 's'} (${peso(extraHours * hourRate)}) to ${booking.guest_name}'s bill and extend checkout?`,
                           confirmLabel: 'Add to bill',
                         })
                         if (!ok) return
@@ -438,12 +458,12 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                         setDone('')
                         setBusy('hours')
                         try {
-                          await addCharge(booking.id, `Extra hour × ${extraHours}`, extraHours * hourRate)
+                          await addExtraHours(booking.id, extraHours)
                           setExtraHours(0)
                           const rows = await reload()
                           const next = rows.find((item) => item.id === booking.id)
                           if (next) setSelectedId(next.id)
-                          setDone('Extra hours added to the bill.')
+                          setDone('Extra hours added and checkout extended.')
                         } catch (err) {
                           setError(rpcError(err))
                         } finally {

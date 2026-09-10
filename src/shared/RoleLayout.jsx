@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ROLE_LABELS, ROLE_SHORT } from '../lib/format'
 import { useConfirm } from './ConfirmDialog'
 import { CountUp } from './motion'
+import ProfileCard from './ProfileCard'
 import './workspace.css'
 
 export function ActionToast({ message, tone = 'ok', busy = false, timeout = 4000 }) {
@@ -52,6 +53,8 @@ const ICONS = {
   Receipts: CardIcon,
   Analytics: GridIcon,
   Schedule: CalendarIcon,
+  'Audit trail': ListIcon,
+  Ratings: ListIcon,
 }
 
 function HomeIcon() {
@@ -174,9 +177,17 @@ function SignOutButton({ onSignOut }) {
 
 const SIDE_KEY = 'ck-side-collapsed'
 
+// `nav` takes either a flat list of labels or `[{ section, items }]` groups.
+export function navSections(nav) {
+  if (!nav?.length) return []
+  return typeof nav[0] === 'string' ? [{ section: 'Menu', items: nav }] : nav
+}
+
 export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread = 0, headerExtra, children }) {
   const role = ROLE_LABELS[roleId] || roleId
   const short = ROLE_SHORT[roleId] || roleId
+  const sections = navSections(nav)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
     try {
       const saved = localStorage.getItem(SIDE_KEY)
@@ -217,19 +228,23 @@ export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread
             </div>
           </div>
         </div>
-        <p className="side-label">Menu</p>
         <nav>
-          {nav.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={active === item ? 'on' : ''}
-              title={item}
-              onClick={() => onNav(item)}
-            >
-              <NavIcon label={item} />
-              <span className="nav-label">{item}</span>
-            </button>
+          {sections.map((group) => (
+            <div className="nav-section" key={group.section}>
+              <p className="side-label">{group.section}</p>
+              {group.items.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={active === item ? 'on' : ''}
+                  title={item}
+                  onClick={() => onNav(item)}
+                >
+                  <NavIcon label={item} />
+                  <span className="nav-label">{item}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <SignOutButton onSignOut={onSignOut} />
@@ -242,12 +257,13 @@ export function RoleLayout({ roleId, name, nav, active, onNav, onSignOut, unread
           </div>
           <div className="who-row">
             {headerExtra}
-            <div className="who">
+            <button type="button" className="who" onClick={() => setProfileOpen(true)} title="View my account">
               <span>{name}</span>
               <small>{short}</small>
-            </div>
+            </button>
           </div>
         </header>
+        {profileOpen ? <ProfileCard onClose={() => setProfileOpen(false)} /> : null}
         <div className="body">{children}</div>
       </section>
     </div>

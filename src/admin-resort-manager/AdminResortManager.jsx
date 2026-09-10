@@ -26,9 +26,16 @@ import { peso, prettyDate, prettyDateTime, rpcError, STATUS_LABELS, statusTone, 
 import UsersPanel from './UsersPanel'
 import AnalyticsPanel from './AnalyticsPanel'
 import SchedulePanel from './SchedulePanel'
+import AuditPanel from './AuditPanel'
+import { useLiveData } from '../shared/useLiveData'
 import './admin.css'
 
-const NAV = ['Dashboard', 'Approvals', 'Analytics', 'Schedule', 'Users', 'Rates', 'Reports']
+const NAV = [
+  { section: 'Overview', items: ['Dashboard', 'Analytics', 'Reports'] },
+  { section: 'Operations', items: ['Approvals', 'Schedule'] },
+  { section: 'Management', items: ['Users', 'Rates'] },
+  { section: 'System', items: ['Audit trail'] },
+]
 
 export default function AdminResortManager({ session, onSignOut }) {
   const confirm = useConfirm()
@@ -79,6 +86,8 @@ export default function AdminResortManager({ session, onSignOut }) {
     reload().catch((err) => setError(rpcError(err)))
   }, [])
 
+  useLiveData(() => reload().catch(() => {}), { channel: 'admin' })
+
   const item = bookings.find((row) => row.id === selectedId)
   const pending = bookings.filter((row) => row.status === 'pending_approval')
 
@@ -120,7 +129,7 @@ export default function AdminResortManager({ session, onSignOut }) {
         }
       />
 
-      {!['Users', 'Analytics', 'Schedule'].includes(active) ? (
+      {!['Users', 'Analytics', 'Schedule', 'Audit trail'].includes(active) ? (
         <div className="stats">
           <Stat label="Pending" value={String(metrics?.pending ?? pending.length)} hint="In queue" />
           <Stat label="Occupancy" value={`${metrics?.occupancy ?? 0}%`} hint="Rooms occupied" />
@@ -410,6 +419,8 @@ export default function AdminResortManager({ session, onSignOut }) {
       )}
 
       {active === 'Analytics' && <AnalyticsPanel onError={setError} />}
+
+      {active === 'Audit trail' && <AuditPanel onError={setError} />}
 
       {active === 'Schedule' && (
         <SchedulePanel
