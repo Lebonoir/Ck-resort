@@ -7,7 +7,7 @@
 -- ---------------------------------------------------------------------------
 
 insert into public.app_settings (key, value) values
-  ('max_advance_days', '365'),
+  ('max_advance_days', '90'),
   ('min_lead_hours', '4'),
   ('max_extra_hours', '6'),
   ('max_pax_day', '150'),
@@ -24,7 +24,7 @@ security definer
 set search_path = public
 as $$
   select jsonb_build_object(
-    'max_advance_days', public.setting('max_advance_days', '365')::int,
+    'max_advance_days', public.setting('max_advance_days', '90')::int,
     'min_lead_hours', public.setting('min_lead_hours', '4')::int,
     'max_extra_hours', public.setting('max_extra_hours', '6')::int,
     'max_pax', jsonb_build_object(
@@ -219,7 +219,7 @@ declare
   v_stay date := nullif(payload->>'stay_date', '')::date;
   v_pax int := greatest(coalesce((payload->>'pax')::int, 1), 1);
   v_extra_hours int := greatest(coalesce((payload->>'extra_hours')::int, 0), 0);
-  v_max_advance int := public.setting('max_advance_days', '365')::int;
+  v_max_advance int := public.setting('max_advance_days', '90')::int;
   v_min_lead int := public.setting('min_lead_hours', '4')::int;
   v_max_extra int := public.setting('max_extra_hours', '6')::int;
   v_max_pax int;

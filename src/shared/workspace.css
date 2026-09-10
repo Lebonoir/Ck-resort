@@ -130,6 +130,22 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Let a long menu scroll instead of pushing Sign out past the viewport. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(126, 163, 181, 0.4) transparent;
+}
+
+.side nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.side nav::-webkit-scrollbar-thumb {
+  background: rgba(126, 163, 181, 0.35);
+  border-radius: 99px;
 }
 
 .nav-section {
@@ -247,10 +263,17 @@
 }
 
 .sign-out {
-  margin-top: auto;
+  margin-top: 10px;
+  flex: none;
   justify-content: center;
   color: #9ec9d8;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sign-out:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
 
 .main {

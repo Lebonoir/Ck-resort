@@ -1,6 +1,20 @@
 -- CK Resort · audit trail, guest reviews, and time-based automation.
 -- Run after schema.sql, booking_lifecycle.sql and booking_rules.sql.
 
+-- Booking window narrowed from a year to 3 months. Only rewrites the old
+-- default, so an admin's own choice in Schedule → Booking rules is kept.
+update public.app_settings
+set value = '90', updated_at = now()
+where key = 'max_advance_days' and value = '365';
+
+-- --------------------------------------------------- room package rates --
+-- Day/Night/Event bookings get a flat room-package rate for 1 or 2 rooms
+-- instead of the sum of individual room rates.
+insert into public.rate_settings (key, label, amount) values
+  ('room_pkg_1', 'Room package · 1 room (day/night/event)', 3000),
+  ('room_pkg_2', 'Room package · 2 rooms (day/night/event)', 5000)
+on conflict (key) do nothing;
+
 -- ---------------------------------------------------------------- reviews --
 create table if not exists public.booking_reviews (
   id uuid primary key default gen_random_uuid(),
@@ -144,6 +158,202 @@ begin
   );
 end;
 $$;
+
+-- --------------------------------------------------------------- quoting --
+-- Supersedes the definition in rpc_ambiguity_fix.sql. Only the room-pricing
+-- block changed: Day/Night/Event now bill 1 or 2 rooms at the flat package
+-- rate; a third room onward, and every Overnight booking, keep per-room rates.
+create or replace function public.quote_booking(payload jsonb)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_tour text := coalesce(payload->>'tour_type', 'day');
+  v_stay date := nullif(payload->>'stay_date', '')::date;
+  v_pax int := greatest(coalesce((payload->>'pax')::int, 1), 1);
+  p_hours int := coalesce((payload->>'hours')::int, 8);
+  v_extra_hours int := greatest(coalesce((payload->>'extra_hours')::int, 0), 0);
+  v_event_when text := coalesce(payload->>'event_when', 'day');
+  v_shift text := payload->>'overnight_shift';
+  v_pets int := greatest(coalesce((payload->>'pets')::int, 0), 0);
+  v_caterer uuid := nullif(payload->>'caterer_id', '')::uuid;
+  unit_ids uuid[] := coalesce(array(select jsonb_array_elements_text(payload->'room_unit_ids'))::uuid[], '{}');
+  lines jsonb := '[]'::jsonb;
+  total numeric := 0;
+  base numeric := 0;
+  cap int := 0;
+  extra_pax int := 0;
+  extra_fee numeric := 0;
+  label text := 'Package';
+  r record;
+  room_names text;
+  partner boolean;
+  v_room_count int := 0;
+  v_pkg_rate numeric := 0;
+  v_extra_rooms numeric := 0;
+begin
+  if v_tour = 'overnight' then
+    select t.amount, t.pax_cap into base, cap
+    from public.overnight_tiers t
+    where t.pax_cap >= v_pax
+    order by t.pax_cap
+    limit 1;
+    if base is null then
+      select ot.amount, ot.pax_cap into base, cap from public.overnight_tiers ot order by ot.pax_cap desc limit 1;
+      extra_pax := v_pax - cap;
+      extra_fee := extra_pax * public.rate_amount('extra_pax_overnight');
+    end if;
+    label := 'Overnight · ' || cap || ' pax' || coalesce(' · ' || v_shift, '');
+    lines := lines || jsonb_build_array(jsonb_build_object('label', label, 'amount', base));
+    if extra_fee > 0 then
+      lines := lines || jsonb_build_array(jsonb_build_object(
+        'label', 'Extra pax × ' || extra_pax,
+        'amount', extra_fee
+      ));
+    end if;
+  elsif v_tour = 'event' then
+    select case when v_event_when = 'night' then eb.night_amount else eb.day_amount end, eb.max_pax
+      into base, cap
+    from public.event_bands eb
+    where eb.max_pax >= v_pax
+    order by eb.max_pax
+    limit 1;
+    if base is null then
+      select case when v_event_when = 'night' then eb.night_amount else eb.day_amount end, eb.max_pax
+        into base, cap
+      from public.event_bands eb order by eb.max_pax desc limit 1;
+    end if;
+    label := 'Event · ' || initcap(v_event_when) || ' · up to ' || v_pax || ' pax';
+    lines := lines || jsonb_build_array(jsonb_build_object('label', label, 'amount', coalesce(base, 0)));
+  else
+    if v_pax <= 20 then
+      base := public.rate_amount(v_tour || '_20');
+      extra_pax := 0;
+      extra_fee := 0;
+    else
+      select thr.amount into base from public.tour_hour_rates thr where thr.tour_type = v_tour and thr.hours = p_hours;
+      if base is null then
+        select thr.amount into base from public.tour_hour_rates thr where thr.tour_type = v_tour and thr.hours = 8;
+      end if;
+      extra_pax := greatest(v_pax - 30, 0);
+      extra_fee := extra_pax * public.rate_amount('extra_pax_tour');
+    end if;
+    label := case when v_tour = 'day' then 'Day Tour' else 'Night Tour' end || ' · ' || v_pax || ' pax';
+    lines := lines || jsonb_build_array(jsonb_build_object('label', label, 'amount', coalesce(base, 0)));
+    if extra_fee > 0 then
+      lines := lines || jsonb_build_array(jsonb_build_object(
+        'label', 'Extra pax × ' || extra_pax,
+        'amount', extra_fee
+      ));
+    end if;
+  end if;
+
+  if v_extra_hours > 0 then
+    lines := lines || jsonb_build_array(jsonb_build_object(
+      'label', 'Extra hour × ' || v_extra_hours,
+      'amount', v_extra_hours * public.rate_amount('extra_hour')
+    ));
+  end if;
+
+  if v_stay is not null and extract(dow from v_stay) in (0, 5, 6) then
+    lines := lines || jsonb_build_array(jsonb_build_object(
+      'label', 'Weekend / holiday rate (Fri–Sun)',
+      'amount', public.rate_amount('weekend')
+    ));
+  end if;
+
+  if cardinality(unit_ids) > 0 then
+    v_room_count := cardinality(unit_ids);
+    select string_agg(rm.name || ' ' || u.name, ', ' order by rm.sort_order, u.sort_order), coalesce(sum(u.rate), 0)
+      into room_names, extra_fee
+    from public.room_units u
+    join public.rooms rm on rm.id = u.room_id
+    where u.id = any (unit_ids);
+
+    if v_tour <> 'overnight' and v_room_count <= 2 then
+      -- Flat package rate covers the first one or two rooms.
+      v_pkg_rate := public.rate_amount(case when v_room_count = 1 then 'room_pkg_1' else 'room_pkg_2' end);
+      lines := lines || jsonb_build_array(jsonb_build_object(
+        'label', 'Room package · ' || v_room_count || ' room' || case when v_room_count = 1 then '' else 's' end
+                 || ' · ' || coalesce(room_names, 'selected'),
+        'amount', v_pkg_rate
+      ));
+    elsif v_tour <> 'overnight' and v_room_count > 2 then
+      -- Package covers two rooms; the rest are billed at their own rates.
+      v_pkg_rate := public.rate_amount('room_pkg_2');
+      select coalesce(sum(u.rate), 0) into v_extra_rooms
+      from (
+        select u2.id, u2.rate
+        from public.room_units u2
+        join public.rooms rm2 on rm2.id = u2.room_id
+        where u2.id = any (unit_ids)
+        order by rm2.sort_order, u2.sort_order
+        offset 2
+      ) u;
+      lines := lines || jsonb_build_array(jsonb_build_object(
+        'label', 'Room package · 2 rooms',
+        'amount', v_pkg_rate
+      ));
+      lines := lines || jsonb_build_array(jsonb_build_object(
+        'label', 'Additional rooms × ' || (v_room_count - 2) || ' · ' || coalesce(room_names, 'selected'),
+        'amount', v_extra_rooms
+      ));
+    else
+      lines := lines || jsonb_build_array(jsonb_build_object(
+        'label', 'Rooms · ' || coalesce(room_names, 'selected'),
+        'amount', extra_fee
+      ));
+    end if;
+  end if;
+
+  if payload ? 'rentals' then
+    for r in
+      select rt.name, rt.price, greatest(coalesce((x.elem->>'qty')::int, 1), 1) as qty
+      from jsonb_array_elements(payload->'rentals') as x(elem)
+      join public.rentals rt on rt.id = (x.elem->>'id')::uuid
+    loop
+      lines := lines || jsonb_build_array(jsonb_build_object(
+        'label', r.name || ' × ' || r.qty,
+        'amount', r.price * r.qty
+      ));
+    end loop;
+  end if;
+
+  if v_pets > 0 then
+    lines := lines || jsonb_build_array(jsonb_build_object(
+      'label', 'Pet fee × ' || v_pets,
+      'amount', v_pets * public.rate_amount('pet')
+    ));
+  end if;
+
+  if v_caterer is not null then
+    select c.is_partner, c.name into partner, room_names from public.caterers c where c.id = v_caterer;
+    if partner then
+      lines := lines || jsonb_build_array(jsonb_build_object('label', 'Tie-up catering · ' || room_names, 'amount', 0));
+    else
+      lines := lines || jsonb_build_array(jsonb_build_object(
+        'label', 'Outside catering corkage (minimum)',
+        'amount', public.rate_amount('corkage')
+      ));
+    end if;
+  end if;
+
+  select coalesce(sum((line->>'amount')::numeric), 0) into total
+  from jsonb_array_elements(lines) as line;
+
+  return jsonb_build_object(
+    'lines', lines,
+    'total', total,
+    'downpayment', round(total * 0.5, 2),
+    'package_label', label
+  );
+end;
+$$;
+
+grant execute on function public.quote_booking(jsonb) to anon, authenticated;
 
 -- ------------------------------------------------------------ audit trail --
 create or replace function public.admin_audit_log(

@@ -58,7 +58,7 @@ export async function getOccupiedDates(from, to) {
 }
 
 export const DEFAULT_BOOKING_RULES = {
-  max_advance_days: 365,
+  max_advance_days: 90,
   min_lead_hours: 4,
   max_extra_hours: 6,
   max_pax: { day: 150, night: 150, overnight: 70, event: 200 },

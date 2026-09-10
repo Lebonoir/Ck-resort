@@ -392,6 +392,32 @@
   flex: 0 0 auto;
 }
 
+/* Column flow so short cards pack under tall ones instead of leaving gaps. */
+.analytics-masonry {
+  column-count: 2;
+  column-gap: 16px;
+}
+
+.analytics-masonry > .admin-card {
+  break-inside: avoid;
+  margin-bottom: 16px;
+  display: inline-block;
+  width: 100%;
+}
+
+@media (max-width: 980px) {
+  .analytics-masonry {
+    column-count: 1;
+  }
+}
+
+/* Keep the export action to its label width. */
+.users-toolbar .admin-save {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  white-space: nowrap;
+}
+
 .analytics-page .ticket-lines {
   list-style: none;
   margin: 0;

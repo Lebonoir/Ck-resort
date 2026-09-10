@@ -154,7 +154,7 @@ export default function AnalyticsPanel({ onError }) {
         <Stat label="Booked value" value={peso(totals.booked_value)} hint="Quoted totals" />
       </div>
 
-      <div className="admin-split">
+      <div className="analytics-masonry">
         <section className="admin-card">
           <h3>Revenue by source</h3>
           <ul className="ticket-lines">
@@ -198,13 +198,12 @@ export default function AnalyticsPanel({ onError }) {
           <h3 style={{ marginTop: 18 }}>Revenue by package</h3>
           <Bars rows={data?.by_package || []} labelKey="label" valueKey="amount" format={peso} />
         </section>
-      </div>
 
-      <div className="admin-split">
         <section className="admin-card">
           <h3>Booking status mix</h3>
           <Bars rows={data?.by_status || []} labelKey="label" valueKey="count" />
         </section>
+
         <section className="admin-card">
           <h3>Most requested rentals</h3>
           <Bars rows={data?.top_rentals || []} labelKey="label" valueKey="count" />
