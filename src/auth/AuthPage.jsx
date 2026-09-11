@@ -156,8 +156,8 @@ function OtpBoxes({ value, onChange }) {
   )
 }
 
-export default function AuthPage({ onBack, recovery = false }) {
-  const [mode, setMode] = useState(recovery ? 'reset' : 'signup')
+export default function AuthPage({ onBack, recovery = false, initialMode = 'signup' }) {
+  const [mode, setMode] = useState(recovery ? 'reset' : initialMode)
   const [step, setStep] = useState(recovery ? 'reset' : 'form')
   const [signup, setSignup] = useState(emptySignup)
   const [login, setLogin] = useState(emptyLogin)

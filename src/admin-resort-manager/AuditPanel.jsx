@@ -24,6 +24,11 @@ const ACTION_LABELS = {
   close_date: 'Closed a date',
   reopen_date: 'Reopened a date',
   save_booking_rules: 'Changed booking rules',
+  add_extra_hours: 'Added extra hours',
+  create_backup: 'Created a backup',
+  download_backup: 'Downloaded a backup',
+  delete_backup: 'Deleted a backup',
+  restore_backup: 'Restored a backup',
 }
 
 function actionLabel(action) {

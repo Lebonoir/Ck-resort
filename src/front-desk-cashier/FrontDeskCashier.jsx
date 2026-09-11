@@ -21,7 +21,16 @@ import {
   returnRental,
   setRoomStatus,
 } from '../lib/api'
-import { peso, prettyDate, rpcError, STATUS_LABELS, stayEndsAt, verifiedPaid } from '../lib/format'
+import {
+  peso,
+  prettyDate,
+  rpcError,
+  STATUS_LABELS,
+  stayEndsAt,
+  stayStartLabel,
+  stayWindowLabel,
+  verifiedPaid,
+} from '../lib/format'
 import '../resort-operations-staff/staff.css'
 import './front-desk.css'
 
@@ -375,7 +384,7 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                     <span>
                       {item.package_label}
                       <small>
-                        {prettyDate(item.stay_date)} · {STATUS_LABELS[item.status]}
+                        {prettyDate(item.stay_date)} · {stayStartLabel(item)} · {STATUS_LABELS[item.status]}
                       </small>
                     </span>
                   </button>
@@ -419,6 +428,11 @@ export default function FrontDeskCashier({ session, onSignOut }) {
                     </small>
                   </div>
                   <span className="pill">{STATUS_LABELS[booking.status]}</span>
+                </div>
+                <div className="ticket-arrival">
+                  <span>Arrival</span>
+                  <b>{stayStartLabel(booking)}</b>
+                  <small>{stayWindowLabel(booking)}</small>
                 </div>
                 {booking.status === 'checked_in' ? (
                   <CountdownPill

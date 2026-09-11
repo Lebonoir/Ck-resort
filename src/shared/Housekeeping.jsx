@@ -9,6 +9,7 @@ const FILTERS = ['All', 'Occupied', 'Available', 'Cleaning']
 export default function Housekeeping({ rooms, bookings = [], busy, onChangeStatus }) {
   const confirm = useConfirm()
   const [filter, setFilter] = useState('All')
+  const [query, setQuery] = useState('')
   const now = useNow()
 
   async function changeRoom(id, status, label) {
@@ -23,19 +24,43 @@ export default function Housekeeping({ rooms, bookings = [], busy, onChangeStatu
     await onChangeStatus(id, status, label)
   }
 
-  const visible = rooms.filter((room) => (filter === 'All' ? true : room.status === filter.toLowerCase()))
+  // Filters as you type; the list itself stays live through useLiveData upstream.
+  const needle = query.trim().toLowerCase()
+  const visible = rooms.filter((room) => {
+    if (filter !== 'All' && room.status !== filter.toLowerCase()) return false
+    if (!needle) return true
+    const stay = bookings.find((item) => item.id === room.current_booking_id)
+    return `${room.rooms?.name || ''} ${room.name} ${room.status} ${stay?.guest_name || ''} ${stay?.reference || ''}`
+      .toLowerCase()
+      .includes(needle)
+  })
 
   return (
     <>
-      <div className="hk-filters">
-        {FILTERS.map((item) => (
-          <button key={item} type="button" className={filter === item ? 'on' : ''} onClick={() => setFilter(item)}>
-            {item}
-          </button>
-        ))}
+      <div className="hk-toolbar">
+        <input
+          type="search"
+          className="hk-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search room, guest or booking ID"
+          aria-label="Search rooms"
+        />
+        <div className="hk-filters">
+          {FILTERS.map((item) => (
+            <button key={item} type="button" className={filter === item ? 'on' : ''} onClick={() => setFilter(item)}>
+              {item}
+            </button>
+          ))}
+        </div>
+        <span className="hk-count">
+          {visible.length} of {rooms.length} rooms
+        </span>
       </div>
       <div className="hk-grid">
-        {visible.length === 0 ? <p className="meta">No rooms match that filter.</p> : null}
+        {visible.length === 0 ? (
+          <p className="meta">{needle ? `No rooms match "${query.trim()}".` : 'No rooms match that filter.'}</p>
+        ) : null}
         {visible.map((room) => {
           const stay = bookings.find((item) => item.id === room.current_booking_id)
           return (

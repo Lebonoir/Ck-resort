@@ -54,6 +54,7 @@ const ICONS = {
   Analytics: GridIcon,
   Schedule: CalendarIcon,
   'Audit trail': ListIcon,
+  Settings: GearIcon,
   Ratings: ListIcon,
 }
 
@@ -112,6 +113,18 @@ function BoxIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path fill="currentColor" d="M3 7 12 3l9 4-9 4Zm0 3 8 3.5V21L3 17Zm10 3.5 8-3.5v7l-8 4Z" />
+    </svg>
+  )
+}
+
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M10.7 2h2.6l.4 2.3a7.5 7.5 0 0 1 1.9.8l1.9-1.4 1.8 1.8-1.4 1.9c.3.6.6 1.2.8 1.9l2.3.4v2.6l-2.3.4a7.5 7.5 0 0 1-.8 1.9l1.4 1.9-1.8 1.8-1.9-1.4a7.5 7.5 0 0 1-1.9.8l-.4 2.3h-2.6l-.4-2.3a7.5 7.5 0 0 1-1.9-.8l-1.9 1.4-1.8-1.8 1.4-1.9a7.5 7.5 0 0 1-.8-1.9L2 13.3v-2.6l2.3-.4c.2-.7.5-1.3.8-1.9L3.7 6.5l1.8-1.8 1.9 1.4c.6-.3 1.2-.6 1.9-.8ZM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"
+      />
     </svg>
   )
 }

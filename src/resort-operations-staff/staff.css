@@ -113,3 +113,35 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Search + status filters + live count. */
+.hk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.hk-search {
+  flex: 1 1 260px;
+  min-width: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font: inherit;
+  background: #fff;
+  color: var(--navy);
+}
+
+.hk-search:focus {
+  outline: none;
+  border-color: var(--aqua);
+  box-shadow: 0 0 0 4px rgba(62, 198, 224, 0.14);
+}
+
+.hk-count {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}

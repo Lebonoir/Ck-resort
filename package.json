@@ -11,7 +11,8 @@
     "db:setup": "node scripts/apply-schema.mjs",
     "db:lifecycle": "node scripts/apply-lifecycle.mjs",
     "db:rules": "node scripts/apply-rules.mjs",
-    "db:extras": "node scripts/apply-extras.mjs"
+    "db:extras": "node scripts/apply-extras.mjs",
+    "db:backup": "node scripts/apply-backup.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

@@ -21,6 +21,8 @@ function Gate() {
   const { session, profile, loading, error, signOut } = useAuth()
   const [showAuth, setShowAuth] = useState(false)
   const [recovery, setRecovery] = useState(false)
+  // Sign-out returns to the Sign in tab; the landing page's Book buttons open Sign up.
+  const [authMode, setAuthMode] = useState('signup')
   // Read the gateway's return params once, then scrub them from the URL so a
   // refresh or a Back press cannot replay the payment screen.
   const [payment, setPayment] = useState(() => {
@@ -78,7 +80,12 @@ function Gate() {
   if (session && profile) {
     const Screen = SCREENS[screenRole(profile.role)] || CustomerGuest
     const name = `${profile.first_name} ${profile.last_name}`.trim() || profile.email || ROLE_SHORT[profile.role]
-    return <Screen key={`${profile.id}-${profile.role}`} session={{ name, roleId: screenRole(profile.role) }} onSignOut={signOut} />
+    return <Screen key={`${profile.id}-${profile.role}`} session={{ name, roleId: screenRole(profile.role) }} onSignOut={() => {
+          setAuthMode('login')
+          setShowAuth(true)
+          signOut()
+        }}
+      />
   }
 
   if (session && !profile) {
@@ -104,12 +111,17 @@ function Gate() {
             {error}
           </p>
         ) : null}
-        <HeroPage onBook={() => setShowAuth(true)} />
+        <HeroPage
+          onBook={() => {
+            setAuthMode('signup')
+            setShowAuth(true)
+          }}
+        />
       </>
     )
   }
 
-  return <AuthPage recovery={recovery} onBack={() => setShowAuth(false)} />
+  return <AuthPage key={authMode} initialMode={authMode} recovery={recovery} onBack={() => setShowAuth(false)} />
 }
 
 export default function App() {

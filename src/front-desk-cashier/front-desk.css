@@ -264,3 +264,33 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Arrival time on the ticket, so the desk knows when the guest is due. */
+.ticket-arrival {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: linear-gradient(170deg, #f4fbfd, #e9f5f9);
+  border: 1px solid #dbe7ee;
+}
+
+.ticket-arrival span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ticket-arrival b {
+  font-size: 20px;
+  color: var(--navy);
+}
+
+.ticket-arrival small {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--muted);
+}

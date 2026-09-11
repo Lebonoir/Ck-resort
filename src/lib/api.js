@@ -522,3 +522,28 @@ export async function reviewStats() {
     return null
   }
 }
+
+// ---------------------------------------------------------- backup & restore
+export async function listBackups() {
+  return rpc('admin_list_backups')
+}
+
+export async function createBackup(label) {
+  return rpc('admin_create_backup', { p_label: label || null })
+}
+
+export async function getBackupPayload(id) {
+  return rpc('admin_get_backup', { p_id: id })
+}
+
+export async function deleteBackup(id) {
+  return rpc('admin_delete_backup', { p_id: id })
+}
+
+export async function restoreBackup(id) {
+  return rpc('admin_restore_backup', { p_id: id })
+}
+
+export async function restoreBackupFile(payload) {
+  return rpc('admin_restore_backup_payload', { p_payload: payload })
+}

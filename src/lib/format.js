@@ -94,6 +94,21 @@ export function stayWindowLabel(booking) {
   return '8:00 AM – 4:00 PM'
 }
 
+/** Time the guest is expected to arrive — the start of the booked slot. */
+export function stayStartLabel(booking) {
+  if (!booking) return '—'
+  if (booking.tour_type === 'overnight') {
+    const shift = String(booking.overnight_shift || '')
+    if (shift.includes('2:00 PM')) return '2:00 PM'
+    if (shift.includes('6:00 PM')) return '6:00 PM'
+    return '9:00 AM'
+  }
+  if (booking.tour_type === 'night' || (booking.tour_type === 'event' && booking.event_when === 'night')) {
+    return '5:00 PM'
+  }
+  return '8:00 AM'
+}
+
 /**
  * Scheduled end of a stay, mirroring booking_window_end() in SQL plus any extra
  * hours bought at the counter. Used for the live countdowns; the SQL lifecycle

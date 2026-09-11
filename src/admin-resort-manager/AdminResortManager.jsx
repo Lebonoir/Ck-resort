@@ -14,19 +14,13 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   rejectBooking,
-  saveLifecycleSettings,
-  saveRate,
-  adminLifecycleSettings,
-  updateEventBand,
-  updateHourRate,
-  updateOvernightTier,
-  updateUnitRate,
 } from '../lib/api'
 import { peso, prettyDate, prettyDateTime, rpcError, STATUS_LABELS, statusTone, verifiedPaid } from '../lib/format'
 import UsersPanel from './UsersPanel'
 import AnalyticsPanel from './AnalyticsPanel'
 import SchedulePanel from './SchedulePanel'
-import AuditPanel from './AuditPanel'
+import RatesPanel from './RatesPanel'
+import SettingsPanel from './SettingsPanel'
 import { useLiveData } from '../shared/useLiveData'
 import './admin.css'
 
@@ -34,7 +28,7 @@ const NAV = [
   { section: 'Overview', items: ['Dashboard', 'Analytics', 'Reports'] },
   { section: 'Operations', items: ['Approvals', 'Schedule'] },
   { section: 'Management', items: ['Users', 'Rates'] },
-  { section: 'System', items: ['Audit trail'] },
+  { section: 'System', items: ['Settings'] },
 ]
 
 export default function AdminResortManager({ session, onSignOut }) {
@@ -52,11 +46,6 @@ export default function AdminResortManager({ session, onSignOut }) {
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [busy, setBusy] = useState('')
-  const [lifecycle, setLifecycle] = useState({
-    downpayment_hours: 48,
-    no_show_grace_minutes: 120,
-    no_show_downpayment_policy: 'retain',
-  })
 
   async function reload() {
     const [nextMetrics, nextBookings, nextUsers, nextCatalog, nextReports, nextNotes] = await Promise.all([
@@ -74,12 +63,6 @@ export default function AdminResortManager({ session, onSignOut }) {
     setReports(nextReports)
     setNotes(nextNotes)
     if (!selectedId && nextBookings[0]) setSelectedId(nextBookings[0].id)
-    try {
-      const settings = await adminLifecycleSettings()
-      if (settings) setLifecycle(settings)
-    } catch {
-      // Settings RPC is installed with booking_lifecycle.sql
-    }
   }
 
   useEffect(() => {
@@ -129,7 +112,7 @@ export default function AdminResortManager({ session, onSignOut }) {
         }
       />
 
-      {!['Users', 'Analytics', 'Schedule', 'Audit trail'].includes(active) ? (
+      {!['Users', 'Analytics', 'Schedule', 'Settings'].includes(active) ? (
         <div className="stats">
           <Stat label="Pending" value={String(metrics?.pending ?? pending.length)} hint="In queue" />
           <Stat label="Occupancy" value={`${metrics?.occupancy ?? 0}%`} hint="Rooms occupied" />
@@ -420,7 +403,13 @@ export default function AdminResortManager({ session, onSignOut }) {
 
       {active === 'Analytics' && <AnalyticsPanel onError={setError} />}
 
-      {active === 'Audit trail' && <AuditPanel onError={setError} />}
+      {active === 'Settings' && (
+        <SettingsPanel
+          onError={setError}
+          onSaved={setSaved}
+          onRestored={() => reload().catch((err) => setError(rpcError(err)))}
+        />
+      )}
 
       {active === 'Schedule' && (
         <SchedulePanel
@@ -433,148 +422,7 @@ export default function AdminResortManager({ session, onSignOut }) {
         />
       )}
 
-      {active === 'Rates' && catalog && (
-        <>
-        <section className="admin-card">
-          <h3>Booking rules</h3>
-          <p className="admin-note">Downpayment and no-show handling. The paid downpayment is never turned into a remaining-balance charge.</p>
-          <div className="rate-grid">
-            <label>
-              Downpayment deadline (hours)
-              <input
-                type="number"
-                min="1"
-                max="168"
-                value={lifecycle.downpayment_hours}
-                onChange={(event) => setLifecycle((row) => ({ ...row, downpayment_hours: Number(event.target.value) || 1 }))}
-              />
-            </label>
-            <label>
-              No-show grace (minutes)
-              <input
-                type="number"
-                min="15"
-                max="720"
-                value={lifecycle.no_show_grace_minutes}
-                onChange={(event) => setLifecycle((row) => ({ ...row, no_show_grace_minutes: Number(event.target.value) || 15 }))}
-              />
-            </label>
-            <label>
-              No-show downpayment
-              <select
-                value={lifecycle.no_show_downpayment_policy}
-                onChange={(event) => setLifecycle((row) => ({ ...row, no_show_downpayment_policy: event.target.value }))}
-              >
-                <option value="retain">Retain as revenue</option>
-                <option value="credit">Hold as guest credit</option>
-              </select>
-            </label>
-          </div>
-          <button
-            type="button"
-            className="admin-save"
-            disabled={Boolean(busy)}
-            onClick={async () => {
-              const ok = await confirm({
-                title: 'Save booking rules',
-                message: 'Update downpayment hours, no-show grace, and downpayment policy for all future bookings?',
-                confirmLabel: 'Save rules',
-              })
-              if (!ok) return
-              setError('')
-              setSaved('')
-              setBusy('rates')
-              try {
-                const savedSettings = await saveLifecycleSettings({
-                  downpaymentHours: lifecycle.downpayment_hours,
-                  graceMinutes: lifecycle.no_show_grace_minutes,
-                  policy: lifecycle.no_show_downpayment_policy,
-                })
-                setLifecycle(savedSettings)
-                setSaved('Booking rules saved.')
-              } catch (err) {
-                setError(rpcError(err))
-              } finally {
-                setBusy('')
-              }
-            }}
-          >
-            {busy === 'rates' ? 'Saving…' : 'Save booking rules'}
-          </button>
-        </section>
-        <section className="admin-card">
-          <h3>Package & surcharge rates</h3>
-          <div className="rate-grid">
-            {catalog.rates.map((rate) => (
-              <label key={rate.key}>
-                {rate.label}
-                <input
-                  type="number"
-                  min="0"
-                  defaultValue={rate.amount}
-                  onBlur={async (event) => {
-                    try {
-                      await saveRate(rate.key, Number(event.target.value) || 0)
-                      setSaved('Rate saved. New quotes will use this amount.')
-                    } catch (err) {
-                      setError(rpcError(err))
-                    }
-                  }}
-                />
-              </label>
-            ))}
-            {catalog.hours.map((row) => (
-              <label key={`${row.tour_type}-${row.hours}`}>
-                {row.tour_type} tour · 30 pax · {row.hours}h
-                <input
-                  type="number"
-                  min="0"
-                  defaultValue={row.amount}
-                  onBlur={(event) =>
-                    updateHourRate(row.tour_type, row.hours, Number(event.target.value) || 0)
-                      .then(() => setSaved('Hourly package rate saved.'))
-                      .catch((err) => setError(rpcError(err)))
-                  }
-                />
-              </label>
-            ))}
-            {catalog.overnight.map((tier) => (
-              <label key={tier.pax_cap}>
-                Overnight · {tier.pax_cap} pax
-                <input
-                  type="number"
-                  min="0"
-                  defaultValue={tier.amount}
-                  onBlur={(event) => updateOvernightTier(tier.pax_cap, Number(event.target.value) || 0).then(() => setSaved('Overnight tier saved.')).catch((err) => setError(rpcError(err)))}
-                />
-              </label>
-            ))}
-            {catalog.events.map((band) => (
-              <label key={`d-${band.max_pax}`}>
-                Event day · {band.max_pax} pax
-                <input
-                  type="number"
-                  min="0"
-                  defaultValue={band.day_amount}
-                  onBlur={(event) => updateEventBand(band.max_pax, { day_amount: Number(event.target.value) || 0 }).then(() => setSaved('Event rate saved.')).catch((err) => setError(rpcError(err)))}
-                />
-              </label>
-            ))}
-            {catalog.units.map((unit) => (
-              <label key={unit.id}>
-                {unit.slug} rate
-                <input
-                  type="number"
-                  min="0"
-                  defaultValue={unit.rate}
-                  onBlur={(event) => updateUnitRate(unit.id, Number(event.target.value) || 0).then(() => setSaved('Room rate saved.')).catch((err) => setError(rpcError(err)))}
-                />
-              </label>
-            ))}
-          </div>
-        </section>
-        </>
-      )}
+      {active === 'Rates' && catalog && <RatesPanel catalog={catalog} onError={setError} onSaved={setSaved} />}
 
       {active === 'Reports' && (
         <Panel title="Sales & payments">
