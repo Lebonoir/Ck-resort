@@ -355,6 +355,17 @@ export default function AuthPage({ onBack, recovery = false }) {
       <div className="water-glow glow-one" />
       <div className="water-glow glow-two" />
       <div className="caustics" />
+      <div className="auth-waves" aria-hidden="true">
+        <div className="auth-wave wave-l1">
+          <span />
+        </div>
+        <div className="auth-wave wave-l2">
+          <span />
+        </div>
+        <div className="auth-wave wave-l3">
+          <span />
+        </div>
+      </div>
 
       <section className="brand-panel">
         <div className="brand-copy">

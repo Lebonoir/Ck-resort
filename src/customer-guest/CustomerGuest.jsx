@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActionToast, BellIcon, Panel, RoleLayout, Stat } from '../shared/RoleLayout'
+import { ActionToast, BellIcon, Panel, RoleLayout } from '../shared/RoleLayout'
 import { Lightbox } from '../shared/motion'
 import BookingFlow from './BookingFlow'
 import RatingsPanel from './RatingsPanel'
+import GuestHome from './GuestHome'
 import { useLiveData } from '../shared/useLiveData'
 import { CountdownPill } from '../shared/Countdown'
 import { FolderList } from '../shared/FolderList'
@@ -373,6 +374,12 @@ export default function CustomerGuest({ session, onSignOut }) {
   const busyKind = busy.includes(':') ? busy.split(':')[0] : ''
   const busyId = busy.includes(':') ? busy.slice(busy.indexOf(':') + 1) : busy
 
+  // Completed stays that no longer appear in the unrated list have been rated.
+  const reviewedCount = Math.max(
+    bookings.filter((row) => row.status === 'completed').length - reviewable.length,
+    0,
+  )
+
   const prices = {
     day: catalog?.rates.find((row) => row.key === 'day_20')?.amount || 6000,
     night: catalog?.rates.find((row) => row.key === 'night_20')?.amount || 7000,
@@ -438,59 +445,80 @@ export default function CustomerGuest({ session, onSignOut }) {
 
       {active === 'Home' && (
         <>
-          <div className="stats">
-            {PACKAGES.map((item) => (
-              <Stat
-                key={item.id}
-                label={item.label}
-                value={peso(prices[item.rateKey])}
-                hint={`${item.hint} · Tap to book`}
-                onClick={() => openBooking(item.id)}
-              />
-            ))}
-          </div>
-          <div className="grid-2 home-split">
-            <Panel title="Guest booking" className="booking-intro">
-              <p className="note">
-                Pick a package and date, add rooms, then rentals and catering. A 50% downpayment is due only after the
+          <section className="hero-band">
+            <div className="hero-band-copy">
+              <p className="band-kicker">Choose your escape</p>
+              <h2>Book the pool, the cabanas, the whole place.</h2>
+              <p className="band-lede">
+                Pick a package and date, add rooms, then rentals and catering. A 50% downpayment is only due once the
                 manager approves your request.
               </p>
-              <button type="button" className="book-btn" onClick={() => openBooking('day')}>
-                Start booking
-              </button>
-            </Panel>
-            <Panel title="Rates" className="rates-panel">
-              <div className="rates-glow" aria-hidden="true" />
-              <div className="flyers">
+            </div>
+            <div className="pkg-grid">
+              {PACKAGES.map((item) => (
                 <button
+                  key={item.id}
                   type="button"
-                  className="flyer-hit"
-                  onClick={() =>
-                    setPreview({
-                      src: '/flyers/packages.png',
-                      alt: 'CK Resort packages and prices',
-                      caption: 'Packages & rates',
-                    })
-                  }
+                  className={`pkg-card pkg-${item.id}`}
+                  onClick={() => openBooking(item.id)}
                 >
-                  <img src="/flyers/packages.png" alt="CK Resort packages and prices" />
+                  <span className="pkg-glow" aria-hidden="true" />
+                  <span className="pkg-name">{item.label.replace(' from', '')}</span>
+                  <span className="pkg-price">{peso(prices[item.rateKey])}</span>
+                  <span className="pkg-hint">{item.hint}</span>
+                  <span className="pkg-cta">Book this →</span>
                 </button>
-                <button
-                  type="button"
-                  className="flyer-hit"
-                  onClick={() =>
-                    setPreview({
-                      src: '/flyers/charges.png',
-                      alt: 'CK Resort other charges and catering',
-                      caption: 'Other charges & catering',
-                    })
-                  }
-                >
-                  <img src="/flyers/charges.png" alt="CK Resort other charges and catering" />
-                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="rates-band">
+            <div className="band-head">
+              <div>
+                <p className="band-kicker">Full price list</p>
+                <h3>Rates &amp; other charges</h3>
               </div>
-            </Panel>
-          </div>
+              <span className="band-note">Tap an image to enlarge</span>
+            </div>
+            <div className="flyers">
+              <button
+                type="button"
+                className="flyer-hit"
+                onClick={() =>
+                  setPreview({
+                    src: '/flyers/packages.png',
+                    alt: 'CK Resort packages and prices',
+                    caption: 'Packages & rates',
+                  })
+                }
+              >
+                <img src="/flyers/packages.png" alt="CK Resort packages and prices" />
+              </button>
+              <button
+                type="button"
+                className="flyer-hit"
+                onClick={() =>
+                  setPreview({
+                    src: '/flyers/charges.png',
+                    alt: 'CK Resort other charges and catering',
+                    caption: 'Other charges & catering',
+                  })
+                }
+              >
+                <img src="/flyers/charges.png" alt="CK Resort other charges and catering" />
+              </button>
+            </div>
+          </section>
+
+          <GuestHome
+            bookings={bookings}
+            catalog={catalog}
+            reviewedCount={reviewedCount}
+            busyId={busyId}
+            busyKind={busyKind}
+            onPay={pay}
+            onView={() => setActive('My reservations')}
+          />
         </>
       )}
 

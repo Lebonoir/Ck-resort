@@ -7,6 +7,59 @@ update public.app_settings
 set value = '90', updated_at = now()
 where key = 'max_advance_days' and value = '365';
 
+-- Day/Night tours cap at 30 pax per the rate card (the 150 was a placeholder).
+-- Only rewrites the old placeholder, so an admin's own value is kept.
+update public.app_settings
+set value = '30', updated_at = now()
+where key in ('max_pax_day', 'max_pax_night') and value = '150';
+
+-- ------------------------------------------------------ guest guardrails --
+-- submit_booking (booking_rules.sql) calls these, but they are defined in
+-- booking_lifecycle.sql. Recreated here so applying the files in any order
+-- still leaves a working booking path.
+create or replace function public.guest_active_statuses()
+returns public.booking_status[]
+language sql
+immutable
+as $$
+  select array[
+    'pending_approval',
+    'awaiting_downpayment',
+    'confirmed',
+    'checked_in',
+    'checked_out'
+  ]::public.booking_status[]
+$$;
+
+create or replace function public.assert_guest_can_book(p_guest uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing public.bookings;
+begin
+  if p_guest is null then
+    return;
+  end if;
+  select * into existing
+  from public.bookings
+  where guest_id = p_guest
+    and status = any (public.guest_active_statuses())
+  order by created_at desc
+  limit 1;
+  if found then
+    raise exception 'You already have an active reservation (%). Open it from Book a stay or My reservations.', existing.reference;
+  end if;
+end;
+$$;
+
+-- create-or-replace keeps any prior ACL, so grant explicitly in case an
+-- earlier file revoked execute on these.
+grant execute on function public.guest_active_statuses() to authenticated;
+grant execute on function public.assert_guest_can_book(uuid) to authenticated;
+
 -- --------------------------------------------------- room package rates --
 -- Day/Night/Event bookings get a flat room-package rate for 1 or 2 rooms
 -- instead of the sum of individual room rates.

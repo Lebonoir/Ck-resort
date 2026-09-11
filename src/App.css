@@ -213,40 +213,76 @@
   box-shadow: 0 0 12px rgba(62, 198, 224, 0.8);
 }
 
-.waves {
+/* Endless water along the bottom of the auth screen. Each strip is one wave
+   tile wider than the viewport and slides exactly one tile to the right, so
+   the loop is seamless. A slow bob on the parent keeps it from looking mechanical. */
+.auth-waves {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100%;
-  height: 180px;
+  height: 190px;
   z-index: 1;
   pointer-events: none;
   overflow: hidden;
 }
 
-.waves svg {
+.auth-wave {
   position: absolute;
-  left: -6%;
+  left: 0;
+  right: 0;
   bottom: 0;
-  width: 112%;
-  height: 100%;
-  display: block;
+  animation: wave-bob 7s ease-in-out infinite alternate;
 }
 
-.wave-back {
-  fill: rgba(62, 198, 224, 0.32);
-  animation: wave 9s ease-in-out infinite;
+.auth-wave span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-repeat: repeat-x;
+  background-position: left bottom;
+  will-change: transform;
 }
 
-.wave-mid {
-  fill: rgba(126, 232, 247, 0.22);
-  animation: wave 12s ease-in-out infinite reverse;
+.wave-l1 {
+  height: 180px;
+  animation-duration: 9s;
 }
 
-.wave-front {
-  fill: #f4f1ea;
-  animation: wave 10s ease-in-out infinite;
+.wave-l1 span {
+  left: -1600px;
+  width: calc(100% + 1600px);
+  background-size: 1600px 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0 60 C200 20 400 20 600 60 C800 100 1000 100 1200 60 V120 H0 Z' fill='%237ee8f7' fill-opacity='.2'/%3E%3C/svg%3E");
+  animation: wave-drift-1 28s linear infinite;
+}
+
+.wave-l2 {
+  height: 145px;
+  animation-duration: 6.5s;
+  animation-delay: -2s;
+}
+
+.wave-l2 span {
+  left: -1200px;
+  width: calc(100% + 1200px);
+  background-size: 1200px 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0 60 C200 30 400 30 600 60 C800 90 1000 90 1200 60 V120 H0 Z' fill='%233ec6e0' fill-opacity='.3'/%3E%3C/svg%3E");
+  animation: wave-drift-2 19s linear infinite;
+}
+
+.wave-l3 {
+  height: 110px;
+  animation-duration: 5s;
+  animation-delay: -1s;
+}
+
+.wave-l3 span {
+  left: -900px;
+  width: calc(100% + 900px);
+  background-size: 900px 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0 50 C150 20 450 20 600 50 C750 80 1050 80 1200 50 V120 H0 Z' fill='%233ec6e0' fill-opacity='.42'/%3E%3Cpath d='M0 50 C150 20 450 20 600 50 C750 80 1050 80 1200 50' fill='none' stroke='%23ffffff' stroke-opacity='.55' stroke-width='1.5' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  animation: wave-drift-3 12s linear infinite;
 }
 
 .form-panel {
@@ -671,13 +707,38 @@ form,
   }
 }
 
-@keyframes wave {
-  0%,
-  100% {
-    transform: translateX(0);
+/* Drift distance must equal each layer's tile width for a seamless loop. */
+@keyframes wave-drift-1 {
+  to {
+    transform: translateX(1600px);
   }
-  50% {
-    transform: translateX(-28px);
+}
+
+@keyframes wave-drift-2 {
+  to {
+    transform: translateX(1200px);
+  }
+}
+
+@keyframes wave-drift-3 {
+  to {
+    transform: translateX(900px);
+  }
+}
+
+@keyframes wave-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-wave,
+  .auth-wave span {
+    animation: none;
   }
 }
 
@@ -733,8 +794,20 @@ form,
     grid-template-columns: 1fr;
   }
 
-  .waves {
-    height: 160px;
+  .auth-waves {
+    height: 140px;
+  }
+
+  .wave-l1 {
+    height: 130px;
+  }
+
+  .wave-l2 {
+    height: 105px;
+  }
+
+  .wave-l3 {
+    height: 80px;
   }
 }
 

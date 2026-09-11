@@ -61,7 +61,7 @@ export const DEFAULT_BOOKING_RULES = {
   max_advance_days: 90,
   min_lead_hours: 4,
   max_extra_hours: 6,
-  max_pax: { day: 150, night: 150, overnight: 70, event: 200 },
+  max_pax: { day: 30, night: 30, overnight: 70, event: 200 },
 }
 
 export async function getBookingRules() {

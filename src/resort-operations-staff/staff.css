@@ -32,19 +32,20 @@
   box-shadow: 0 10px 24px rgba(7, 25, 46, 0.06);
   display: grid;
   gap: 8px;
-  border-top: 4px solid #c9d6de;
+  border-right: 4px solid #cfe3ee;
 }
 
+/* Status accent on the right edge, kept within the blue theme. */
 .hk-card.occupied {
-  border-top-color: #1a4e73;
+  border-right-color: var(--navy-mid);
 }
 
 .hk-card.available {
-  border-top-color: #1c9a6a;
+  border-right-color: var(--aqua);
 }
 
 .hk-card.cleaning {
-  border-top-color: #c9a15b;
+  border-right-color: #7fb3d5;
 }
 
 .hk-card header {

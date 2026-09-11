@@ -10,8 +10,8 @@ insert into public.app_settings (key, value) values
   ('max_advance_days', '90'),
   ('min_lead_hours', '4'),
   ('max_extra_hours', '6'),
-  ('max_pax_day', '150'),
-  ('max_pax_night', '150'),
+  ('max_pax_day', '30'),
+  ('max_pax_night', '30'),
   ('max_pax_overnight', '70'),
   ('max_pax_event', '200')
 on conflict (key) do nothing;
@@ -28,8 +28,8 @@ as $$
     'min_lead_hours', public.setting('min_lead_hours', '4')::int,
     'max_extra_hours', public.setting('max_extra_hours', '6')::int,
     'max_pax', jsonb_build_object(
-      'day', public.setting('max_pax_day', '150')::int,
-      'night', public.setting('max_pax_night', '150')::int,
+      'day', public.setting('max_pax_day', '30')::int,
+      'night', public.setting('max_pax_night', '30')::int,
       'overnight', public.setting('max_pax_overnight', '70')::int,
       'event', public.setting('max_pax_event', '200')::int
     )
@@ -248,8 +248,8 @@ begin
   v_max_pax := case v_tour
     when 'overnight' then public.setting('max_pax_overnight', '70')::int
     when 'event' then public.setting('max_pax_event', '200')::int
-    when 'night' then public.setting('max_pax_night', '150')::int
-    else public.setting('max_pax_day', '150')::int
+    when 'night' then public.setting('max_pax_night', '30')::int
+    else public.setting('max_pax_day', '30')::int
   end;
   if v_pax > v_max_pax then
     raise exception 'A % booking allows up to % guests. Contact the resort for larger groups', v_tour, v_max_pax;

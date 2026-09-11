@@ -423,3 +423,392 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ----------------------------------------------- guest home dashboard */
+.next-stay-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.next-stay-head b {
+  display: block;
+  color: var(--navy);
+  font-size: 16px;
+}
+
+.next-stay-head small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.next-stay .stay-details {
+  margin: 12px 0;
+}
+
+.next-stay .action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.next-stay .action-row .book-btn,
+.next-stay .action-row .ghost {
+  margin-top: 0;
+}
+
+.pay-summary .ticket-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pay-summary .ticket-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.pay-summary .ticket-lines b {
+  color: var(--navy);
+}
+
+.pay-summary .ticket-subtotal {
+  border-bottom: 0;
+  font-weight: 700;
+}
+
+.pay-summary .ticket-subtotal b {
+  font-size: 18px;
+}
+
+.pay-meter {
+  height: 8px;
+  border-radius: 99px;
+  background: #e7eef2;
+  overflow: hidden;
+  margin: 4px 0 10px;
+}
+
+.pay-meter span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #3ec6e0, #1c9a6a);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.receipt-mini {
+  margin-top: 12px;
+}
+
+.caterer-grid {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.caterer-grid li {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f4fafc;
+  border: 1px solid #dbe7ee;
+  font-size: 13px;
+  color: var(--navy);
+  font-weight: 600;
+}
+
+/* =============================================== guest home · bands ===== */
+.band-kicker {
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* On the dark hero the muted tone disappears, so the kicker stays aqua there. */
+.hero-band .band-kicker {
+  color: var(--aqua-bright);
+}
+
+.band-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.band-head h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 26px;
+  color: var(--navy);
+}
+
+.band-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------- packages hero --- */
+.hero-band {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 26px;
+  background:
+    radial-gradient(700px 300px at 85% -10%, rgba(62, 198, 224, 0.35), transparent 60%),
+    linear-gradient(160deg, #07192e 0%, #0d2b4a 60%, #12395f 100%);
+  color: #e8f4f8;
+  box-shadow: 0 18px 40px rgba(7, 25, 46, 0.24);
+}
+
+.hero-band::after {
+  content: '';
+  position: absolute;
+  inset: auto -10% -60% -10%;
+  height: 200px;
+  background: radial-gradient(closest-side, rgba(126, 232, 247, 0.16), transparent);
+  pointer-events: none;
+}
+
+.hero-band-copy {
+  max-width: 620px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.hero-band-copy h2 {
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-size: 30px;
+  line-height: 1.15;
+  color: #fff;
+}
+
+.band-lede {
+  margin: 0;
+  color: #b8d6e4;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.pkg-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pkg-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  text-align: left;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
+  color: #e8f4f8;
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s ease, border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.pkg-card:hover,
+.pkg-card:focus-visible {
+  transform: translateY(-6px);
+  background: rgba(255, 255, 255, 0.13);
+  border-color: var(--aqua);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.3);
+  outline: none;
+}
+
+.pkg-glow {
+  position: absolute;
+  inset: -40% -30% auto auto;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(126, 232, 247, 0.5), transparent);
+  opacity: 0.5;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.pkg-card:hover .pkg-glow {
+  opacity: 1;
+  transform: translateY(8px);
+}
+
+.pkg-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--aqua-bright);
+}
+
+.pkg-price {
+  font-family: var(--sans);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #fff;
+}
+
+.pkg-hint {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #b8d6e4;
+  min-height: 32px;
+}
+
+.pkg-cta {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--aqua-bright);
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.pkg-card:hover .pkg-cta,
+.pkg-card:focus-visible .pkg-cta {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* -------------------------------------------------------- rates band --- */
+.rates-band,
+.journey-band,
+.caterer-band {
+  background: #fff;
+  border-radius: 22px;
+  padding: 22px;
+  box-shadow: 0 10px 26px rgba(7, 25, 46, 0.07);
+}
+
+.rates-band .flyers {
+  gap: 16px;
+}
+
+/* ------------------------------------------------------ stay summary --- */
+.journey-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.journey-tile {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(170deg, #f4fbfd, #e9f5f9);
+  border: 1px solid #dbe7ee;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.journey-tile::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--aqua), #1c9a6a);
+}
+
+.journey-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 26px rgba(7, 25, 46, 0.1);
+}
+
+.journey-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.journey-tile strong {
+  font-family: var(--sans);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--navy);
+}
+
+.journey-tile small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------- caterers --- */
+.caterer-grid li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: linear-gradient(170deg, #f7fcfd, #eef7fa);
+  border: 1px solid #dbe7ee;
+  font-size: 13px;
+  color: var(--navy);
+  font-weight: 600;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.caterer-grid li:hover {
+  transform: translateY(-2px);
+  border-color: var(--aqua);
+}
+
+.caterer-mark {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(180deg, #3ec6e0, #1a4e73);
+}
+
+@media (max-width: 980px) {
+  .pkg-grid,
+  .journey-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hero-band-copy h2 {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 560px) {
+  .pkg-grid,
+  .journey-grid {
+    grid-template-columns: 1fr;
+  }
+}
