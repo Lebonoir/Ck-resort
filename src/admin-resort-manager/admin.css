@@ -236,7 +236,7 @@
 .bar span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #3ec6e0, #0d2b4a);
+  background: var(--aqua);
 }
 
 .users-page {
@@ -482,7 +482,7 @@
   display: block;
   height: 100%;
   border-radius: 99px;
-  background: linear-gradient(90deg, #3ec6e0, #1c9a6a);
+  background: var(--aqua);
   min-width: 2px;
   transition: width 0.4s ease;
 }
@@ -547,7 +547,7 @@
   padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid #dbe7ee;
-  background: linear-gradient(170deg, #f7fcfd, #eef7fa);
+  background: #f4fafc;
   color: var(--navy);
   font: inherit;
   cursor: pointer;
@@ -571,9 +571,7 @@
 .settings-tabs .on {
   border-color: transparent;
   color: #fff;
-  background:
-    radial-gradient(260px 120px at 100% 0%, rgba(62, 198, 224, 0.3), transparent 65%),
-    linear-gradient(160deg, #07192e 0%, #12395f 100%);
+  background: var(--navy);
   box-shadow: 0 14px 28px rgba(7, 25, 46, 0.2);
 }
 
@@ -653,7 +651,7 @@
 .backup-scope li {
   padding: 12px 14px;
   border-radius: 14px;
-  background: linear-gradient(170deg, #f7fcfd, #eef7fa);
+  background: #f4fafc;
   border: 1px solid #dbe7ee;
   font-size: 13px;
   line-height: 1.5;

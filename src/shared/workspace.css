@@ -1448,3 +1448,50 @@ button:disabled {
     border-radius: 20px;
   }
 }
+
+/* ===================================================================
+   Admin — flat colours. Same layout as the role theme above, minus the
+   gradients and glows. The extra .role-admin keeps these ahead of the
+   shared :not(.role-guest) rules; front desk and operations are unchanged.
+   =================================================================== */
+.workspace.role-admin {
+  background: #f1f6f9;
+}
+
+.workspace.role-admin .side {
+  background: #0b2240;
+}
+
+.workspace.role-admin:not(.role-guest) .stats {
+  background: #0d2b4a;
+}
+
+.workspace.role-admin:not(.role-guest) .admin-card,
+.workspace.role-admin:not(.role-guest) .panel {
+  background: #fff;
+}
+
+.workspace.role-admin:not(.role-guest) .list li,
+.workspace.role-admin:not(.role-guest) .admin-list button,
+.workspace.role-admin:not(.role-guest) .folder-chips button {
+  background: #f4fafc;
+}
+
+.workspace.role-admin:not(.role-guest) .list li:hover,
+.workspace.role-admin:not(.role-guest) .admin-list button:hover {
+  background: #e9f4f8;
+}
+
+.workspace.role-admin:not(.role-guest) .list li.focus,
+.workspace.role-admin:not(.role-guest) .admin-list .on {
+  background: #e3f5fa;
+}
+
+.workspace.role-admin:not(.role-guest) .folder-chips .on {
+  background: var(--navy);
+}
+
+.workspace.role-admin .profile-avatar,
+.workspace.role-admin .rating-fill {
+  background: var(--aqua);
+}
