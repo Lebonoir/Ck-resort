@@ -112,7 +112,10 @@
 
 .hero-photo-wrap {
   position: absolute;
-  inset: -6% 0 0;
+  /* Top overhang must exceed the max parallax lag (offset is clamped to one
+     viewport height, factor 0.22) so scrolling never uncovers bare background
+     above the photo. */
+  inset: -30% 0 0;
   will-change: transform;
 }
 
@@ -233,6 +236,25 @@
   font-weight: 700;
   border-bottom: 1px solid rgba(255, 255, 255, 0.4);
   padding-bottom: 4px;
+}
+
+.see-prices {
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  border-radius: 999px;
+  padding: 15px 22px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.see-prices:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: #fff;
 }
 
 .hero-stats {
@@ -550,6 +572,81 @@
   text-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
 }
 
+/* ------------------------------------------------------- packages & rates */
+.rate-flyers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 40px;
+}
+
+.rate-flyer {
+  margin: 0;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #eaf5fa;
+  box-shadow: 0 16px 40px rgba(7, 25, 46, 0.08);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.rate-flyer:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 22px 48px rgba(7, 25, 46, 0.14);
+}
+
+.rate-flyer-hit {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.rate-flyer-hit img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rate-flyer:hover .rate-flyer-hit img {
+  transform: scale(1.035);
+}
+
+.rate-flyer-zoom {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 16px;
+  background: rgba(7, 25, 46, 0.55);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.rate-flyer:hover .rate-flyer-zoom,
+.rate-flyer-hit:focus-visible .rate-flyer-zoom {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.rate-flyer figcaption {
+  padding: 14px 18px;
+  background: #fff;
+  color: #07192e;
+  font-weight: 700;
+  font-size: 14px;
+}
+
 .reviews-head {
   display: flex;
   justify-content: space-between;
@@ -744,12 +841,22 @@
     right: 16px;
   }
 
-  .hero-stats,
   .stay-grid,
   .amenity-row,
+  .rate-flyers,
   .review-grid,
   .bento {
     grid-template-columns: 1fr;
+  }
+
+  /* Stay 2-up instead of a single column: four stacked full-width rows grow
+     tall enough to cover the headline above (see .hero-overlay padding-bottom). */
+  .hero-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hero-stats div {
+    padding: 14px 16px;
   }
 
   .bento {
@@ -762,11 +869,32 @@
   }
 
   .hero-overlay {
-    padding-bottom: 180px;
+    padding-bottom: 240px;
   }
 
   .close-band {
     margin-left: 16px;
     margin-right: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* At phone widths the brand block, phone link, and Book now button no
+     longer fit one row and were wrapping into a cramped 3-line mess.
+     Drop the phone link (still reachable from the footer) and let the
+     brand copy sit on one line so nav stays a single tidy row. */
+  .hero-nav-actions a[href^='tel:'] {
+    display: none;
+  }
+
+  .hero-brand div {
+    min-width: 0;
+  }
+
+  .hero-brand span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActionToast } from '../shared/RoleLayout'
 import { useConfirm } from '../shared/ConfirmDialog'
 import {
@@ -17,19 +17,19 @@ import MonthCalendar, { addDaysIso, manilaTodayIso } from '../shared/MonthCalend
 import './booking.css'
 
 const STEPS = ['Package & date', 'Rooms', 'Rentals', 'Review']
-const TOUR_TYPES = [
+export const TOUR_TYPES = [
   { id: 'day', label: 'Day Tour', hours: '8:00 AM – 4:00 PM' },
   { id: 'night', label: 'Night Tour', hours: '5:00 PM – 12:00 AM' },
   { id: 'overnight', label: 'Overnight Stay', hours: '22-hour stay' },
   { id: 'event', label: 'Event Package', hours: 'Day or night · sound system included' },
 ]
-const OVERNIGHT_SHIFTS = [
+export const OVERNIGHT_SHIFTS = [
   { id: '9:00 AM – 7:00 AM', label: '9:00 AM – 7:00 AM' },
   { id: '2:00 PM – 12:00 NN', label: '2:00 PM – 12:00 NN' },
   { id: '6:00 PM – 4:00 PM', label: '6:00 PM – 4:00 PM' },
 ]
 
-function slotStartMs(iso, tour, shift, eventWhen) {
+export function slotStartMs(iso, tour, shift, eventWhen) {
   let hour = 8
   if (tour === 'night' || (tour === 'event' && eventWhen === 'night')) hour = 17
   else if (tour === 'overnight') {
@@ -40,9 +40,23 @@ function slotStartMs(iso, tour, shift, eventWhen) {
   return new Date(`${iso}T${String(hour).padStart(2, '0')}:00:00+08:00`).getTime()
 }
 
-export default function BookingFlow({ onDone, onHasActive, initialTourType = 'day' }) {
+export default function BookingFlow({
+  onDone,
+  onHasActive,
+  initialTourType = 'day',
+  initialBooking = null,
+  initialStep = 0,
+  // Guest mode: run the whole wizard without an account (rooms/rentals/rates
+  // are public data). Submitting hands the built payload to onRequireAuth
+  // instead of calling submitBooking, since that RPC needs a real session.
+  guestMode = false,
+  onRequireAuth = null,
+  // Set once, right after auth, to resume a guest-built request: fires
+  // submitBooking automatically instead of waiting for another click.
+  autoSubmit = false,
+}) {
   const confirm = useConfirm()
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(initialStep)
   const [catalog, setCatalog] = useState(null)
   const [occupied, setOccupied] = useState([])
   const [closures, setClosures] = useState([])
@@ -64,6 +78,9 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
     rentals: [],
     pets: 0,
     caterer_id: '',
+    // Carries over the package/date/pax a guest already picked in the public
+    // estimator (see GuestEstimator) so signing up doesn't throw that away.
+    ...initialBooking,
   })
 
   const today = manilaTodayIso()
@@ -79,7 +96,8 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
           getCatalog(),
           getOccupiedDates(today, horizon),
           getClosedDates(today, horizon),
-          getActiveBooking(),
+          // getActiveBooking needs a real session — guests browsing pre-signup have none.
+          guestMode ? Promise.resolve(null) : getActiveBooking(),
         ])
       })
       .then((result) => {
@@ -199,12 +217,26 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
   }
 
   async function sendRequest() {
+    if (guestMode) {
+      const ok = await confirm({
+        title: 'Send booking request',
+        message: `Submit ${summary.package_label || 'this stay'} on ${booking.stay_date} for ${peso(summary.total)}? Sign up or log in next — this exact request is sent right after, no need to fill it in again.`,
+        confirmLabel: 'Continue to sign up',
+      })
+      if (!ok) return
+      onRequireAuth?.(payload)
+      return
+    }
     const ok = await confirm({
       title: 'Send booking request',
       message: `Submit ${summary.package_label || 'this stay'} on ${booking.stay_date} for ${peso(summary.total)}? The 50% downpayment is due only after the manager approves.`,
       confirmLabel: 'Send request',
     })
     if (!ok) return
+    await submitNow()
+  }
+
+  async function submitNow() {
     setSending(true)
     setError('')
     try {
@@ -224,6 +256,15 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
       setSending(false)
     }
   }
+
+  // Resuming a guest-built request right after login: fire the submit once,
+  // automatically — the guest already confirmed it before being sent to sign up.
+  const autoSubmitted = useRef(false)
+  useEffect(() => {
+    if (!autoSubmit || guestMode || !catalog || autoSubmitted.current) return
+    autoSubmitted.current = true
+    submitNow()
+  }, [autoSubmit, guestMode, catalog])
 
   if (!catalog) {
     return (
@@ -496,8 +537,9 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
           {step === 3 && (
             <div className="stack">
               <p className="hint">
-                Your request is sent to the resort manager first. The 50% downpayment is collected through PayMongo
-                only after approval. Totals are calculated on the server from current rates.
+                {guestMode
+                  ? "You'll sign up or log in next — this exact request is sent right after, nothing to refill. Your request then goes to the resort manager first, and the 50% downpayment is collected through PayMongo only after approval."
+                  : 'Your request is sent to the resort manager first. The 50% downpayment is collected through PayMongo only after approval. Totals are calculated on the server from current rates.'}
               </p>
               {error ? <p className="otp-error">{error}</p> : null}
             </div>
@@ -520,7 +562,7 @@ export default function BookingFlow({ onDone, onHasActive, initialTourType = 'da
               </button>
             ) : (
               <button type="button" className="book-btn" disabled={sending || !booking.stay_date} onClick={sendRequest}>
-                {sending ? 'Sending…' : 'Send booking request'}
+                {sending ? 'Sending…' : guestMode ? 'Continue to sign up' : 'Send booking request'}
               </button>
             )}
           </div>

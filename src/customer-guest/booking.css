@@ -812,3 +812,82 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* --------------------------------------------------- guest estimator modal */
+.plan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: start center;
+  padding: 32px 20px;
+  overflow-y: auto;
+  background: rgba(4, 17, 31, 0.6);
+  backdrop-filter: blur(14px);
+  animation: overlayIn 0.28s ease;
+}
+
+.plan-modal {
+  position: relative;
+  width: min(980px, 100%);
+  margin: auto;
+  background: #fff;
+  border-radius: 28px;
+  padding: 32px 32px 28px;
+  box-shadow: 0 40px 90px rgba(4, 17, 31, 0.4);
+  animation: modalIn 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.plan-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: #eef4f7;
+  color: var(--navy);
+  font-size: 22px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+.plan-close:hover {
+  background: #e3edf3;
+}
+
+.plan-modal-head {
+  max-width: 60ch;
+  margin-bottom: 22px;
+}
+
+.plan-kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #1a9a6a;
+}
+
+.plan-modal-head h3 {
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-size: 30px;
+  color: var(--navy);
+}
+
+.plan-modal-head p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .plan-modal {
+    padding: 24px 18px 22px;
+    border-radius: 22px;
+  }
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CountUp, Lightbox, Reveal, prefersReducedMotion } from '../shared/motion'
+import GuestEstimator from '../customer-guest/GuestEstimator'
 import { REVIEWS } from './reviews'
 import './hero.css'
 
@@ -16,6 +17,11 @@ const GALLERY = [
   { src: '/hero/pool.png', alt: 'Main pool, circular tub, wooden pergola, and A-frame cottage', caption: 'Pool deck · pergola · A-frame cottage', className: 'wide' },
   { src: '/hero/guests.png', alt: 'Guests on the A-frame balcony', caption: 'Gatherings on the balcony', className: 'tall' },
   { src: '/hero/aerial.png', alt: 'Aerial of pool and surrounding rice fields', caption: 'Rice fields at the edge', className: '' },
+]
+
+const RATE_FLYERS = [
+  { src: '/flyers/packages.png', alt: 'CK Resort overnight stay, event package, day tour and night tour rates', caption: 'Packages & rates' },
+  { src: '/flyers/charges.png', alt: 'CK Resort other charges, rentals, and tie-up caterers', caption: 'Other charges & catering' },
 ]
 
 function Stars({ count = 5 }) {
@@ -35,6 +41,7 @@ export default function HeroPage({ onBook }) {
   const [scrolled, setScrolled] = useState(false)
   const [offset, setOffset] = useState(0)
   const [preview, setPreview] = useState(null)
+  const [planning, setPlanning] = useState(false)
   const featured = REVIEWS.find((review) => review.featured) || REVIEWS[0]
 
   useEffect(() => {
@@ -43,7 +50,9 @@ export default function HeroPage({ onBook }) {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         setScrolled(window.scrollY > 24)
-        setOffset(prefersReducedMotion() ? 0 : window.scrollY)
+        // Clamp to the viewport height: once the banner has scrolled past, it's
+        // clipped anyway, so there's no reason for the lag to keep growing.
+        setOffset(prefersReducedMotion() ? 0 : Math.min(window.scrollY, window.innerHeight))
       })
     }
     onScroll()
@@ -67,6 +76,7 @@ export default function HeroPage({ onBook }) {
         <nav className="hero-links">
           <a href="#stay">Stay</a>
           <a href="#gallery">Gallery</a>
+          <a href="#rates">Rates</a>
           <a href="#reviews">Reviews</a>
         </nav>
         <div className="hero-nav-actions">
@@ -93,6 +103,9 @@ export default function HeroPage({ onBook }) {
           <div className="hero-cta-row hero-copy-in d3">
             <button type="button" className="book-now big" onClick={onBook}>
               Book your stay
+            </button>
+            <button type="button" className="see-prices" onClick={() => setPlanning(true)}>
+              Plan your visit — no sign up needed
             </button>
             <a className="ghost-link" href="#reviews">
               Read guest stories
@@ -199,6 +212,27 @@ export default function HeroPage({ onBook }) {
         ))}
       </section>
 
+      <section className="hero-block rates-block" id="rates">
+        <Reveal className="hero-copy">
+          <p className="hero-kicker dark">Packages &amp; rates</p>
+          <h2>Simple pricing for day tours, overnights, and events.</h2>
+          <p>From pax-based overnight stays to event packages, rentals, and tie-up caterers — tap a card to zoom in and read every line.</p>
+        </Reveal>
+        <div className="rate-flyers">
+          {RATE_FLYERS.map((item, index) => (
+            <Reveal as="figure" variant="scale" delay={index * 90} className="rate-flyer" key={item.src}>
+              <button type="button" className="rate-flyer-hit" onClick={() => setPreview(item)} aria-label={`View ${item.caption}`}>
+                <img src={item.src} alt={item.alt} loading="lazy" />
+                <span className="rate-flyer-zoom" aria-hidden="true">
+                  ⤢
+                </span>
+              </button>
+              <figcaption>{item.caption}</figcaption>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
       <section className="hero-block reviews-wrap" id="reviews">
         <Reveal className="reviews-head">
           <div className="hero-copy">
@@ -258,6 +292,15 @@ export default function HeroPage({ onBook }) {
       </footer>
 
       {preview ? <Lightbox src={preview.src} alt={preview.alt} caption={preview.caption} onClose={() => setPreview(null)} /> : null}
+      {planning ? (
+        <GuestEstimator
+          onClose={() => setPlanning(false)}
+          onRequireAuth={() => {
+            setPlanning(false)
+            onBook()
+          }}
+        />
+      ) : null}
     </div>
   )
 }

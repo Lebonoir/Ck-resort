@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ActionToast, BellIcon, Panel, RoleLayout } from '../shared/RoleLayout'
 import { Lightbox } from '../shared/motion'
 import BookingFlow from './BookingFlow'
+import { readPendingPlan } from './GuestEstimator'
 import RatingsPanel from './RatingsPanel'
 import GuestHome from './GuestHome'
 import { useLiveData } from '../shared/useLiveData'
@@ -241,6 +242,10 @@ export default function CustomerGuest({ session, onSignOut }) {
   const [noticeId, setNoticeId] = useState('')
   const [activeStay, setActiveStay] = useState(null)
   const [reviewable, setReviewable] = useState([])
+  // One-shot: a plan built pre-signup in the landing page's estimator. Read
+  // once on mount, then only cleared by a fresh openBooking() so it can't
+  // clobber a later, unrelated "Book this" click.
+  const pendingBookingRef = useRef(null)
 
   async function reload() {
     try {
@@ -267,6 +272,14 @@ export default function CustomerGuest({ session, onSignOut }) {
     reload()
   }, [])
 
+  useEffect(() => {
+    const plan = readPendingPlan()
+    if (!plan) return
+    pendingBookingRef.current = plan
+    setInitialPackage(plan.tour_type || 'day')
+    setActive('Book a stay')
+  }, [])
+
   // Status changes (approval, auto checkout, completion) arrive on their own.
   useLiveData(reload, { tables: ['bookings', 'notifications'], channel: 'guest' })
 
@@ -283,6 +296,7 @@ export default function CustomerGuest({ session, onSignOut }) {
   }
 
   async function openBooking(tourType = 'day') {
+    pendingBookingRef.current = null
     setError('')
     let stay = bookings.find((row) => GUEST_ACTIVE_STATUSES.includes(row.status))
     try {
@@ -529,6 +543,9 @@ export default function CustomerGuest({ session, onSignOut }) {
           <BookingFlow
             key={initialPackage}
             initialTourType={initialPackage}
+            initialBooking={pendingBookingRef.current}
+            initialStep={pendingBookingRef.current ? 3 : 0}
+            autoSubmit={Boolean(pendingBookingRef.current)}
             onHasActive={(booking) => setActiveStay(booking)}
             onDone={() => {
               setActive('My reservations')
