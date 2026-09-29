@@ -34,6 +34,7 @@ import {
   stayWindowLabel,
 } from '../lib/format'
 import './booking.css'
+import './dashboard.css'
 
 const NAV = [
   { section: 'Stay', items: ['Home', 'Book a stay'] },

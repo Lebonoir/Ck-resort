@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { rpcError } from '../lib/format'
 import '../App.css'
+import './auth.css'
 
 const emptySignup = {
   firstName: '',
@@ -16,65 +17,150 @@ const emptyLogin = {
   password: '',
 }
 
-function IconUser() {
+/* Presentation only: line icons (stroke follows currentColor). */
+function Svg({ size = 20, children }) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12Zm0 2.25c-3.6 0-8.25 1.8-8.25 5.25V21h16.5v-1.5c0-3.45-4.65-5.25-8.25-5.25Z"
-      />
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {children}
     </svg>
   )
 }
 
-function IconPhone() {
+function IconEye() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M7.2 3.6h3.15l1.05 5.1-1.8 1.08a12.6 12.6 0 0 0 5.62 5.62l1.08-1.8 5.1 1.05v3.15A1.8 1.8 0 0 1 19.6 20.4 15.6 15.6 0 0 1 3.6 4.4 1.8 1.8 0 0 1 5.4 3.6Z"
-      />
-    </svg>
+    <Svg>
+      <path d="M2.06 12.35a1 1 0 0 1 0-.7C3.42 8.1 7.36 5 12 5s8.58 3.1 9.94 6.65a1 1 0 0 1 0 .7C20.58 15.9 16.64 19 12 19s-8.58-3.1-9.94-6.65Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Svg>
   )
 }
 
-function IconMail() {
+function IconEyeOff() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M4.5 5.25h15A1.5 1.5 0 0 1 21 6.75v10.5a1.5 1.5 0 0 1-1.5 1.5h-15a1.5 1.5 0 0 1-1.5-1.5V6.75a1.5 1.5 0 0 1 1.5-1.5Zm7.5 7.2 7.5-5.1v-.6l-7.5 5.1-7.5-5.1v.6Z"
-      />
-    </svg>
+    <Svg>
+      <path d="M10.73 5.08A10.74 10.74 0 0 1 21.94 11.65a1 1 0 0 1 0 .7 10.75 10.75 0 0 1-1.44 2.49" />
+      <path d="M14.08 14.16a3 3 0 0 1-4.24-4.24" />
+      <path d="M17.48 17.5A10.75 10.75 0 0 1 2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 4.45-5.14" />
+      <path d="m2 2 20 20" />
+    </Svg>
   )
 }
 
-function IconLock() {
+function IconAlert() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M17.25 9.75V8.25a5.25 5.25 0 0 0-10.5 0v1.5H5.25v10.5h13.5V9.75Zm-8.25 0V8.25a3 3 0 0 1 6 0v1.5Z"
-      />
-    </svg>
+    <Svg size={16}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
+    </Svg>
   )
 }
 
-function IconEye({ off }) {
-  return off ? (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M2.1 4.2 3.3 3l18 18-1.2 1.2-3.18-3.18A11.5 11.5 0 0 1 12 19.5C6 19.5 1.35 15.15.75 12.6a1.7 1.7 0 0 1 0-1.2 13.3 13.3 0 0 1 4.8-5.55Zm6.3 6.3a3.6 3.6 0 0 0 4.95 4.95l-1.35-1.35a2.1 2.1 0 0 1-2.25-2.25Zm3.6-4.8a3.6 3.6 0 0 1 3.6 3.6v.15l-3.75-3.75Z"
+function IconArrow() {
+  return (
+    <Svg size={18}>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </Svg>
+  )
+}
+
+function IconChevronLeft() {
+  return (
+    <Svg size={18}>
+      <path d="m15 18-6-6 6-6" />
+    </Svg>
+  )
+}
+
+function IconWaves() {
+  return (
+    <Svg size={18}>
+      <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
+      <path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
+      <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" />
+    </Svg>
+  )
+}
+
+function IconCalendar() {
+  return (
+    <Svg size={18}>
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <rect width="18" height="18" x="3" y="4" rx="2" />
+      <path d="M3 10h18" />
+    </Svg>
+  )
+}
+
+function IconShield() {
+  return (
+    <Svg size={18}>
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      <path d="m9 12 2 2 4-4" />
+    </Svg>
+  )
+}
+
+function Spinner() {
+  return <span className="au-spinner" aria-hidden="true" />
+}
+
+const PERKS = [
+  { Icon: IconWaves, text: 'Day swimming & cabana stays' },
+  { Icon: IconCalendar, text: 'Birthdays, reunions, and private events' },
+  { Icon: IconShield, text: 'Secure booking with email verification' },
+]
+
+/* The photo side: static, decorative, no state. */
+function BrandAside() {
+  return (
+    <aside className="au-aside" aria-label="CK Resort & Event Place">
+      <img
+        className="au-photo"
+        src="/hero/hero-night.png"
+        alt=""
+        width="1024"
+        height="768"
+        fetchPriority="high"
+        decoding="async"
       />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M12 5.25c6 0 10.65 4.35 11.25 6.9a1.7 1.7 0 0 1 0 1.2C22.65 15.9 18 20.25 12 20.25S1.35 15.9.75 13.35a1.7 1.7 0 0 1 0-1.2C1.35 9.6 6 5.25 12 5.25Zm0 3.3A3.6 3.6 0 1 0 15.6 12 3.6 3.6 0 0 0 12 8.55Z"
-      />
-    </svg>
+      <div className="au-lockup">
+        <img src="/logo.png" alt="" width="48" height="48" />
+        <div className="au-lockup-text">
+          <strong>CK Resort</strong>
+          <span>Events Place · Pampanga</span>
+        </div>
+      </div>
+      <div className="au-aside-copy">
+        <p className="au-kicker">Private pool · Resort · Events</p>
+        <p className="au-display">
+          A calm escape, made for gatherings <em>by the water.</em>
+        </p>
+        <ul className="au-perks">
+          {PERKS.map(({ Icon, text }) => (
+            <li key={text}>
+              <span className="au-perk-icon">
+                <Icon />
+              </span>
+              {text}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
   )
 }
 
@@ -87,24 +173,58 @@ function passwordScore(password) {
   return score
 }
 
-function Field({ id, label, icon, type = 'text', value, onChange, error, placeholder, autoComplete, suffix }) {
+function EyeToggle({ shown, onToggle }) {
   return (
-    <label className={`field ${error ? 'has-error' : ''} ${value ? 'filled' : ''}`} htmlFor={id}>
-      <span className="field-icon">{icon}</span>
-      <span className="field-body">
-        <span className="field-label">{label}</span>
+    <button type="button" className="au-eye" onClick={onToggle} aria-label={shown ? 'Hide password' : 'Show password'}>
+      {shown ? <IconEyeOff /> : <IconEye />}
+    </button>
+  )
+}
+
+/* Same props and same onChange(value) contract as before; only the markup changed. */
+function Field({ id, label, type = 'text', value, onChange, error, placeholder, autoComplete, aside, suffix, below }) {
+  return (
+    <div className={`au-field ${error ? 'has-error' : ''}`}>
+      <div className="au-label-row">
+        <label htmlFor={id}>{label}</label>
+        {aside}
+      </div>
+      <div className="au-control">
         <input
           id={id}
           type={type}
           value={value}
           placeholder={placeholder}
           autoComplete={autoComplete}
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
           onChange={(event) => onChange(event.target.value)}
         />
-      </span>
-      {suffix}
-      {error ? <span className="field-error">{error}</span> : null}
-    </label>
+        {suffix}
+      </div>
+      {below}
+      {error ? (
+        <p className="au-error" id={`${id}-error`} role="alert">
+          <IconAlert />
+          <span>{error}</span>
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/* Bars are lit from the score the page already computes; a too-short password shows one red bar. */
+function StrengthMeter({ score, label }) {
+  const lit = Math.max(score, 1)
+  return (
+    <div className="au-meter" data-score={score}>
+      <div className="au-meter-bars" aria-hidden="true">
+        {[1, 2, 3, 4].map((bar) => (
+          <span key={bar} className={bar <= lit ? 'on' : ''} />
+        ))}
+      </div>
+      <p>{label}</p>
+    </div>
   )
 }
 
@@ -118,14 +238,14 @@ function OtpBoxes({ value, onChange }) {
   }
 
   return (
-    <div className="otp-row">
+    <div className="au-otp">
       {Array.from({ length: 6 }, (_, index) => (
         <input
           key={index}
           ref={(node) => {
             inputs.current[index] = node
           }}
-          className="otp-box"
+          className="au-otp-box"
           inputMode="numeric"
           maxLength={1}
           value={value[index] || ''}
@@ -351,265 +471,256 @@ export default function AuthPage({ onBack, recovery = false, initialMode = 'sign
   }
 
   return (
-    <div className="auth-shell">
-      <div className="water-glow glow-one" />
-      <div className="water-glow glow-two" />
-      <div className="caustics" />
-      <div className="auth-waves" aria-hidden="true">
-        <div className="auth-wave wave-l1">
-          <span />
-        </div>
-        <div className="auth-wave wave-l2">
-          <span />
-        </div>
-        <div className="auth-wave wave-l3">
-          <span />
-        </div>
-      </div>
+    <div className="au">
+      <main className="au-main">
+        {step === 'form' && onBack ? (
+          <button type="button" className="au-back" onClick={onBack}>
+            <IconChevronLeft />
+            Back to home
+          </button>
+        ) : null}
 
-      <section className="brand-panel">
-        <div className="brand-copy">
-          <img className="brand-logo" src="/logo.png" alt="CK Resort & Event Place" />
-          <p className="eyebrow">Private pool · Resort · Events</p>
-          <h1>A calm escape, made for gatherings by the water.</h1>
-          <p className="lede">
-            Create your guest account to book pool days, celebrations, and quiet weekends at CK Resort & Event Place.
-          </p>
-          <ul className="perks">
-            <li>Day swimming & cabana stays</li>
-            <li>Birthdays, reunions, and private events</li>
-            <li>Secure booking with email verification</li>
-          </ul>
-        </div>
-      </section>
-
-      <section className="form-panel">
-        <div className={`form-card ${shake ? 'shake' : ''}`}>
-          {step === 'form' && (
-            <>
-              <div className="mobile-brand">
-                <img src="/logo.png" alt="CK Resort & Event Place" />
-              </div>
-              {onBack ? (
-                <button type="button" className="icon-back" onClick={onBack} aria-label="Back to home">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      fill="currentColor"
-                      d="M15.5 5.5 9 12l6.5 6.5-1.4 1.4L6.2 12l7.9-7.9Z"
-                    />
-                  </svg>
-                </button>
-              ) : null}
-              <div className="mode-switch" role="tablist">
-                <button type="button" className={mode === 'login' || mode === 'forgot' ? 'active' : ''} onClick={() => resetFlow('login')}>
+        <div className="au-shell">
+          <div className={`au-panel ${shake ? 'shake' : ''}`}>
+            {step === 'form' && (
+              <div className="au-tabs" role="group" aria-label="Account access" data-active={mode === 'signup' ? 'signup' : 'login'}>
+                <button
+                  type="button"
+                  className="au-tab"
+                  aria-pressed={mode === 'login' || mode === 'forgot'}
+                  onClick={() => resetFlow('login')}
+                >
                   Sign in
                 </button>
-                <button type="button" className={mode === 'signup' ? 'active' : ''} onClick={() => resetFlow('signup')}>
+                <button type="button" className="au-tab" aria-pressed={mode === 'signup'} onClick={() => resetFlow('signup')}>
                   Sign up
                 </button>
               </div>
-              <div className="form-intro">
-                <h2>{mode === 'signup' ? 'Join the resort' : mode === 'forgot' ? 'Reset password' : 'Welcome back'}</h2>
-                <p>
-                  {mode === 'signup'
-                    ? 'Guests can create an account here. Staff and admin accounts are created by the resort manager, then sign in with email and password.'
-                    : mode === 'forgot'
-                      ? 'Enter your email and we will send a 6-digit code. Enter the code, then set a new password.'
-                      : 'Use the email and password on your account. Sessions stay signed in on this device.'}
-                </p>
-              </div>
+            )}
 
-              <form onSubmit={handleSubmit} noValidate>
-                {mode === 'signup' && (
-                  <div className="name-grid">
-                    <Field
-                      id="firstName"
-                      label="First name"
-                      icon={<IconUser />}
-                      value={signup.firstName}
-                      error={errors.firstName}
-                      autoComplete="given-name"
-                      onChange={(value) => updateSignup('firstName', value)}
-                    />
-                    <Field
-                      id="lastName"
-                      label="Last name"
-                      icon={<IconUser />}
-                      value={signup.lastName}
-                      error={errors.lastName}
-                      autoComplete="family-name"
-                      onChange={(value) => updateSignup('lastName', value)}
-                    />
+            <div className="au-swap" key={step === 'form' ? mode : step}>
+              {step === 'form' && (
+                <>
+                  <div className="au-head">
+                    <h1 id="au-title">
+                      {mode === 'signup' ? 'Join the resort' : mode === 'forgot' ? 'Reset password' : 'Welcome back'}
+                    </h1>
+                    <p>
+                      {mode === 'signup'
+                        ? 'Guests can create an account here. Staff and admin accounts are created by the resort manager, then sign in with email and password.'
+                        : mode === 'forgot'
+                          ? 'Enter your email and we will send a 6-digit code. Enter the code, then set a new password.'
+                          : 'Use the email and password on your account. Sessions stay signed in on this device.'}
+                    </p>
                   </div>
-                )}
 
-                {mode === 'signup' && (
-                  <Field
-                    id="contact"
-                    label="Contact number"
-                    icon={<IconPhone />}
-                    type="tel"
-                    value={signup.contact}
-                    error={errors.contact}
-                    placeholder="09XX XXX XXXX"
-                    autoComplete="tel"
-                    onChange={(value) => updateSignup('contact', value)}
-                  />
-                )}
+                  <form className="au-form" onSubmit={handleSubmit} noValidate aria-labelledby="au-title">
+                    {mode === 'signup' && (
+                      <div className="au-row">
+                        <Field
+                          id="firstName"
+                          label="First name"
+                          value={signup.firstName}
+                          error={errors.firstName}
+                          autoComplete="given-name"
+                          onChange={(value) => updateSignup('firstName', value)}
+                        />
+                        <Field
+                          id="lastName"
+                          label="Last name"
+                          value={signup.lastName}
+                          error={errors.lastName}
+                          autoComplete="family-name"
+                          onChange={(value) => updateSignup('lastName', value)}
+                        />
+                      </div>
+                    )}
 
-                <Field
-                  id="email"
-                  label={mode === 'login' ? 'Email / username' : 'Email address'}
-                  icon={<IconMail />}
-                  type="email"
-                  value={mode === 'signup' ? signup.email : login.email}
-                  error={errors.email}
-                  autoComplete="email"
-                  onChange={(value) =>
-                    mode === 'signup'
-                      ? updateSignup('email', value)
-                      : setLogin((current) => ({ ...current, email: value }))
-                  }
-                />
+                    {mode === 'signup' && (
+                      <Field
+                        id="contact"
+                        label="Contact number"
+                        type="tel"
+                        value={signup.contact}
+                        error={errors.contact}
+                        placeholder="09XX XXX XXXX"
+                        autoComplete="tel"
+                        onChange={(value) => updateSignup('contact', value)}
+                      />
+                    )}
 
-                {mode !== 'forgot' && (
-                  <Field
-                    id="password"
-                    label="Password"
-                    icon={<IconLock />}
-                    type={showPassword ? 'text' : 'password'}
-                    value={mode === 'signup' ? signup.password : login.password}
-                    error={errors.password}
-                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                    onChange={(value) =>
-                      mode === 'signup'
-                        ? updateSignup('password', value)
-                        : setLogin((current) => ({ ...current, password: value }))
-                    }
-                    suffix={
-                      <button
-                        type="button"
-                        className="ghost-icon"
-                        onClick={() => setShowPassword((value) => !value)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        <IconEye off={showPassword} />
-                      </button>
-                    }
-                  />
-                )}
+                    <Field
+                      id="email"
+                      label={mode === 'login' ? 'Email / username' : 'Email address'}
+                      type="email"
+                      value={mode === 'signup' ? signup.email : login.email}
+                      error={errors.email}
+                      autoComplete="email"
+                      onChange={(value) =>
+                        mode === 'signup'
+                          ? updateSignup('email', value)
+                          : setLogin((current) => ({ ...current, email: value }))
+                      }
+                    />
 
-                {mode === 'signup' && signup.password && (
-                  <div className={`strength score-${score}`}>
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                    <p>{strength}</p>
-                  </div>
-                )}
+                    {mode !== 'forgot' && (
+                      <Field
+                        id="password"
+                        label="Password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={mode === 'signup' ? signup.password : login.password}
+                        error={errors.password}
+                        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                        onChange={(value) =>
+                          mode === 'signup'
+                            ? updateSignup('password', value)
+                            : setLogin((current) => ({ ...current, password: value }))
+                        }
+                        aside={
+                          mode === 'login' ? (
+                            <button type="button" className="au-link" onClick={() => resetFlow('forgot')}>
+                              Forgot password?
+                            </button>
+                          ) : null
+                        }
+                        suffix={<EyeToggle shown={showPassword} onToggle={() => setShowPassword((value) => !value)} />}
+                        below={mode === 'signup' && signup.password ? <StrengthMeter score={score} label={strength} /> : null}
+                      />
+                    )}
 
-                {mode === 'login' && (
-                  <div className="row-between row-end">
-                    <button type="button" className="text-link" onClick={() => resetFlow('forgot')}>
-                      Forgot password?
+                    {info ? (
+                      <p className="au-note" role="status">
+                        {info}
+                      </p>
+                    ) : null}
+
+                    <button className="au-btn" type="submit" disabled={loading} aria-busy={loading || undefined}>
+                      {loading ? (
+                        <>
+                          <Spinner />
+                          Please wait…
+                        </>
+                      ) : (
+                        <>
+                          {mode === 'signup' ? 'Create account' : mode === 'forgot' ? 'Send reset code' : 'Sign in'}
+                          <IconArrow />
+                        </>
+                      )}
                     </button>
+                  </form>
+                </>
+              )}
+
+              {step === 'otp' && (
+                <form className="au-form" onSubmit={verifyOtp} aria-labelledby="au-title">
+                  <button type="button" className="au-link au-link-back" onClick={() => setStep('form')}>
+                    <IconChevronLeft />
+                    Back to {otpMode === 'recovery' ? 'sign in' : 'details'}
+                  </button>
+                  <div className="au-steps">{otpMode === 'recovery' ? 'Step 1 of 2 · Verify' : 'Step 2 of 2 · Verify'}</div>
+                  <div className="au-head">
+                    <h1 id="au-title">Check your inbox</h1>
+                    <p>{info || `Enter the 6-digit code sent to ${otpEmail}.`}</p>
                   </div>
-                )}
-
-                {info ? <p className="note">{info}</p> : null}
-
-                <button className="submit" type="submit" disabled={loading}>
-                  {loading
-                    ? 'Please wait…'
-                    : mode === 'signup'
-                      ? 'Create account'
-                      : mode === 'forgot'
-                        ? 'Send reset code'
-                        : 'Sign in'}
-                </button>
-              </form>
-            </>
-          )}
-
-          {step === 'otp' && (
-            <form className="otp-step" onSubmit={verifyOtp}>
-              <button type="button" className="text-link back" onClick={() => setStep('form')}>
-                ← Back to {otpMode === 'recovery' ? 'sign in' : 'details'}
-              </button>
-              <div className="otp-badge">
-                {otpMode === 'recovery' ? 'Step 1 of 2 · Verify' : 'Step 2 of 2 · Verify'}
-              </div>
-              <h2>Check your inbox</h2>
-              <p>{info || `Enter the 6-digit code sent to ${otpEmail}.`}</p>
-              <OtpBoxes
-                value={otp}
-                onChange={(value) => {
-                  setOtp(value)
-                  setErrors((current) => ({ ...current, otp: '' }))
-                }}
-              />
-              {errors.otp ? <p className="otp-error">{errors.otp}</p> : null}
-              <button className="submit" type="submit" disabled={otp.length !== 6 || loading}>
-                {loading ? 'Verifying…' : 'Verify code'}
-              </button>
-              <p className="resend">
-                Did not get it?{' '}
-                {seconds > 0 ? (
-                  <span>Resend in 0:{String(seconds).padStart(2, '0')}</span>
-                ) : (
-                  <button type="button" className="text-link" onClick={resend}>
-                    Resend code
+                  <div className={`au-otp-wrap ${errors.otp ? 'has-error' : ''}`}>
+                    <OtpBoxes
+                      value={otp}
+                      onChange={(value) => {
+                        setOtp(value)
+                        setErrors((current) => ({ ...current, otp: '' }))
+                      }}
+                    />
+                  </div>
+                  {errors.otp ? (
+                    <p className="au-error" role="alert">
+                      <IconAlert />
+                      <span>{errors.otp}</span>
+                    </p>
+                  ) : null}
+                  <button className="au-btn" type="submit" disabled={otp.length !== 6 || loading} aria-busy={loading || undefined}>
+                    {loading ? (
+                      <>
+                        <Spinner />
+                        Verifying…
+                      </>
+                    ) : (
+                      <>
+                        Verify code
+                        <IconArrow />
+                      </>
+                    )}
                   </button>
-                )}
-              </p>
-            </form>
-          )}
+                  <p className="au-resend">
+                    Did not get it?{' '}
+                    {seconds > 0 ? (
+                      <span>Resend in 0:{String(seconds).padStart(2, '0')}</span>
+                    ) : (
+                      <button type="button" className="au-link" onClick={resend}>
+                        Resend code
+                      </button>
+                    )}
+                  </p>
+                </form>
+              )}
 
-          {step === 'reset' && (
-            <form className="otp-step" onSubmit={saveNewPassword}>
-              <h2>Set a new password</h2>
-              <p>Choose a new password for your CK Resort account.</p>
-              <Field
-                id="newPassword"
-                label="New password"
-                icon={<IconLock />}
-                type={showPassword ? 'text' : 'password'}
-                value={newPassword}
-                error={errors.password}
-                onChange={setNewPassword}
-                suffix={
-                  <button type="button" className="ghost-icon" onClick={() => setShowPassword((value) => !value)}>
-                    <IconEye off={showPassword} />
+              {step === 'reset' && (
+                <form className="au-form" onSubmit={saveNewPassword} aria-labelledby="au-title">
+                  <div className="au-head">
+                    <h1 id="au-title">Set a new password</h1>
+                    <p>Choose a new password for your CK Resort account.</p>
+                  </div>
+                  <Field
+                    id="newPassword"
+                    label="New password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    error={errors.password}
+                    onChange={setNewPassword}
+                    suffix={<EyeToggle shown={showPassword} onToggle={() => setShowPassword((value) => !value)} />}
+                  />
+                  <Field
+                    id="confirmPassword"
+                    label="Confirm new password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    error={errors.confirm}
+                    onChange={setConfirmPassword}
+                    suffix={<EyeToggle shown={showPassword} onToggle={() => setShowPassword((value) => !value)} />}
+                  />
+                  <button className="au-btn" type="submit" disabled={loading} aria-busy={loading || undefined}>
+                    {loading ? (
+                      <>
+                        <Spinner />
+                        Saving…
+                      </>
+                    ) : (
+                      <>
+                        Save password
+                        <IconArrow />
+                      </>
+                    )}
                   </button>
-                }
-              />
-              <Field
-                id="confirmPassword"
-                label="Confirm new password"
-                icon={<IconLock />}
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                error={errors.confirm}
-                onChange={setConfirmPassword}
-              />
-              <button className="submit" type="submit" disabled={loading}>
-                {loading ? 'Saving…' : 'Save password'}
-              </button>
-            </form>
-          )}
+                </form>
+              )}
 
-          {step === 'welcome' && (
-            <div className="welcome">
-              <div className="check-burst" aria-hidden="true">
-                ✓
-              </div>
-              <h2>You are in.</h2>
-              <p>Your workspace will open automatically. If it does not, refresh the page.</p>
+              {step === 'welcome' && (
+                <div className="au-welcome" role="status">
+                  <svg className="au-check" viewBox="0 0 52 52" aria-hidden="true">
+                    <circle cx="26" cy="26" r="24" pathLength="1" />
+                    <path d="M15 27l8 8 15-17" pathLength="1" />
+                  </svg>
+                  <div className="au-head">
+                    <h1 id="au-title">You are in.</h1>
+                    <p>Your workspace will open automatically. If it does not, refresh the page.</p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
-      </section>
+      </main>
+
+      <BrandAside />
     </div>
   )
 }

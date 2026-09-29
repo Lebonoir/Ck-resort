@@ -1,0 +1,967 @@
+/* ==========================================================================
+   Auth: sign in, sign up, verify, reset.
+
+   Every class is prefixed `au-` because the app's CSS is one global cascade —
+   generic names like .field or .note would collide with the workspace screens.
+
+   Layout is mobile-first: a short photo header with the form sheet overlapping
+   it. From 1024px it becomes a sticky photo panel beside a scrolling form.
+
+   Colour choices were checked for WCAG contrast: body/muted text >= 4.5:1 on
+   the sand background, field borders >= 3:1, focus border 8.8:1.
+   ========================================================================== */
+
+.au {
+  --au-bg: #f7f4ee;
+  --au-ink: #0d2b4a;
+  --au-text: #2a3f54;
+  --au-muted: #4f6478;
+  --au-placeholder: #5f7386;
+  --au-border: #74899b;
+  --au-border-hover: #5c7286;
+  --au-focus: #1a4e73;
+  --au-ring: rgba(62, 198, 224, 0.34);
+  --au-danger: #b42a3b;
+  --au-danger-ring: rgba(180, 42, 59, 0.16);
+  --au-ok: #137a54;
+  --au-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  background: var(--au-bg);
+  color: var(--au-text);
+  font-family: var(--sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ---------- brand side: photo ---------- */
+
+.au-aside {
+  order: -1;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: clamp(232px, 34svh, 320px);
+  padding: 16px 20px 52px;
+  color: #fff;
+  background: var(--navy-deep);
+}
+
+.au-photo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 72% 32%;
+  animation:
+    au-photo-in 0.9s ease-out both,
+    au-ken 32s ease-in-out 0.9s infinite alternate;
+}
+
+/* Darkens the top (for the back button) and bottom (for the headline). */
+.au-aside::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgba(4, 17, 31, 0.66) 0%,
+    rgba(4, 17, 31, 0.1) 30%,
+    rgba(4, 17, 31, 0.5) 55%,
+    rgba(4, 17, 31, 0.94) 100%
+  );
+}
+
+.au-lockup {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.au-lockup img {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 50%;
+  background: #fff;
+  object-fit: contain;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.16);
+}
+
+.au-lockup-text {
+  display: none;
+  text-shadow: 0 1px 10px rgba(4, 17, 31, 0.7);
+}
+
+.au-lockup-text strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.au-lockup-text span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.au-kicker {
+  display: none;
+  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #9be7f3;
+}
+
+.au-display {
+  margin: 0;
+  max-width: 17ch;
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  text-shadow: 0 1px 16px rgba(4, 17, 31, 0.6);
+}
+
+.au-display em {
+  font-style: italic;
+  color: var(--aqua-soft);
+}
+
+.au-perks {
+  display: none;
+  margin: 26px 0 0;
+  padding: 0;
+  list-style: none;
+  gap: 12px;
+}
+
+.au-perks li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.au-perk-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--aqua-bright);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- form side ---------- */
+
+.au-main {
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-top: -28px;
+  padding: 24px 20px 32px;
+  border-radius: 28px 28px 0 0;
+  background: var(--au-bg);
+  box-shadow: 0 -14px 34px rgba(4, 17, 31, 0.24);
+}
+
+.au-shell {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.au-back {
+  position: absolute;
+  top: 18px;
+  left: 16px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 14px 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  background: rgba(4, 17, 31, 0.34);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font: 600 14px/1 var(--sans);
+  transition: background-color 0.2s ease;
+}
+
+.au-back:hover {
+  background: rgba(4, 17, 31, 0.5);
+}
+
+.au-back svg,
+.au-link-back svg {
+  flex: none;
+  transition: transform 0.2s var(--au-ease);
+}
+
+.au-back:hover svg,
+.au-link-back:hover svg {
+  transform: translateX(-2px);
+}
+
+/* ---------- sign in / sign up switch ---------- */
+
+.au-tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(13, 43, 74, 0.07);
+}
+
+.au-tabs::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(7, 25, 46, 0.1),
+    0 4px 12px rgba(7, 25, 46, 0.08);
+  transition: transform 0.32s var(--au-ease);
+}
+
+.au-tabs[data-active='signup']::before {
+  transform: translateX(100%);
+}
+
+.au-tab {
+  position: relative;
+  z-index: 1;
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--au-muted);
+  font: 600 15px/1 var(--sans);
+  transition: color 0.2s ease;
+}
+
+.au-tab[aria-pressed='true'],
+.au-tab:hover {
+  color: var(--au-ink);
+}
+
+/* ---------- panel: step content swaps and error shake ---------- */
+
+.au-swap {
+  animation: au-swap 0.3s var(--au-ease) both;
+}
+
+.au-panel.shake {
+  animation: au-shake 0.42s ease;
+}
+
+.au-head {
+  margin: 26px 0 22px;
+}
+
+.au-head h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--au-ink);
+}
+
+.au-head p {
+  max-width: 44ch;
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--au-muted);
+}
+
+/* ---------- form ---------- */
+
+/* minmax(0, 1fr) everywhere: a bare 1fr can't shrink below an input's intrinsic
+   width, which pushes the second name field off small screens. */
+.au-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.au-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.au-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
+.au-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.au-label-row label {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--au-ink);
+}
+
+.au-control {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  border: 1px solid var(--au-border);
+  border-radius: 14px;
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.au-control:hover {
+  border-color: var(--au-border-hover);
+}
+
+.au-control:focus-within {
+  border-color: var(--au-focus);
+  box-shadow:
+    0 0 0 1px var(--au-focus),
+    0 0 0 5px var(--au-ring);
+  outline: 2px solid transparent;
+}
+
+.au-field.has-error .au-control {
+  border-color: var(--au-danger);
+  box-shadow: 0 0 0 1px var(--au-danger);
+}
+
+.au-field.has-error .au-control:focus-within {
+  box-shadow:
+    0 0 0 1px var(--au-danger),
+    0 0 0 5px var(--au-danger-ring);
+}
+
+/* 16px is deliberate: anything smaller makes iOS Safari zoom in on focus. */
+.au-control input {
+  flex: 1;
+  min-width: 0;
+  height: 50px;
+  padding: 0 14px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--au-ink);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.au-control input::placeholder {
+  color: var(--au-placeholder);
+  opacity: 1;
+}
+
+.au-control input:-webkit-autofill {
+  -webkit-text-fill-color: var(--au-ink);
+  box-shadow: 0 0 0 100px #fff inset;
+}
+
+.au-eye {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: 3px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--au-muted);
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.au-eye:hover {
+  color: var(--au-ink);
+  background: rgba(13, 43, 74, 0.06);
+}
+
+.au-eye:focus-visible,
+.au-tab:focus-visible,
+.au-link:focus-visible,
+.au-back:focus-visible {
+  outline: 2px solid var(--au-focus);
+  outline-offset: 2px;
+}
+
+.au-back:focus-visible {
+  outline-color: #fff;
+}
+
+.au-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--au-danger);
+  animation: au-pop 0.2s var(--au-ease) both;
+}
+
+.au-error svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* Existing `info` message from the page logic, shown inside the form. */
+.au-note {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(62, 198, 224, 0.14);
+  color: var(--au-ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------- password strength ---------- */
+
+.au-meter {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.au-meter-bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.au-meter-bars span {
+  height: 4px;
+  border-radius: 2px;
+  background: #d9e0e6;
+  transition: background-color 0.25s ease;
+}
+
+.au-meter p {
+  min-width: 88px;
+  margin: 0;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--au-muted);
+}
+
+.au-meter[data-score='0'] .on {
+  background: #d2555f;
+}
+
+.au-meter[data-score='1'] .on {
+  background: #b8770a;
+}
+
+.au-meter[data-score='2'] .on {
+  background: #1a9ab5;
+}
+
+.au-meter[data-score='3'] .on,
+.au-meter[data-score='4'] .on {
+  background: #1c9a6a;
+}
+
+/* ---------- buttons and links ---------- */
+
+.au-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--au-ink);
+  color: #fff;
+  font: 600 16px/1 var(--sans);
+  letter-spacing: 0.01em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 10px 22px -10px rgba(13, 43, 74, 0.65);
+  transition:
+    background-color 0.2s ease,
+    transform 0.15s var(--au-ease),
+    box-shadow 0.2s ease;
+}
+
+.au-btn svg {
+  transition: transform 0.2s var(--au-ease);
+}
+
+.au-btn:hover:not(:disabled) {
+  background: #123a63;
+}
+
+.au-btn:hover:not(:disabled) svg {
+  transform: translateX(3px);
+}
+
+.au-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.au-btn:focus-visible {
+  outline: 3px solid var(--au-focus);
+  outline-offset: 3px;
+}
+
+.au-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.au-btn[aria-busy='true'] {
+  cursor: progress;
+}
+
+.au-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--au-focus);
+  font: 600 14px/1.3 var(--sans);
+  text-decoration: underline;
+  text-decoration-color: rgba(26, 78, 115, 0.3);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.au-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.au-link-back {
+  justify-self: start;
+  margin-left: -4px;
+  color: var(--au-muted);
+  text-decoration: none;
+}
+
+.au-link-back:hover {
+  color: var(--au-ink);
+}
+
+.au-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: au-spin 0.7s linear infinite;
+}
+
+/* ---------- verify code step ---------- */
+
+.au-steps {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 10px;
+  padding: 7px 12px 7px 10px;
+  border-radius: 999px;
+  background: rgba(13, 43, 74, 0.07);
+  color: var(--au-focus);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* In the verify and reset steps the heading lives inside the form, so the
+   form's own gap spaces it instead of the head's margin. */
+.au-form > .au-head {
+  margin: 0;
+}
+
+.au-otp {
+  display: grid;
+  /* minmax(0, …) so the inputs' intrinsic width can never overflow the column. */
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.au-otp-box {
+  width: 100%;
+  min-width: 0;
+  height: 58px;
+  padding: 0;
+  border: 1px solid var(--au-border);
+  border-radius: 12px;
+  outline: none;
+  background: #fff;
+  color: var(--au-ink);
+  text-align: center;
+  font-size: 26px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.au-otp-box:hover {
+  border-color: var(--au-border-hover);
+}
+
+.au-otp-box:focus {
+  border-color: var(--au-focus);
+  box-shadow:
+    0 0 0 1px var(--au-focus),
+    0 0 0 5px var(--au-ring);
+  outline: 2px solid transparent;
+}
+
+.au-otp-wrap.has-error .au-otp-box {
+  border-color: var(--au-danger);
+  box-shadow: 0 0 0 1px var(--au-danger);
+}
+
+.au-otp-wrap.has-error .au-otp-box:focus {
+  box-shadow:
+    0 0 0 1px var(--au-danger),
+    0 0 0 5px var(--au-danger-ring);
+}
+
+.au-resend {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--au-muted);
+}
+
+/* ---------- welcome ---------- */
+
+.au-welcome {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 36px 0 8px;
+  text-align: center;
+}
+
+.au-welcome .au-head {
+  margin: 8px 0 0;
+}
+
+.au-welcome .au-head p {
+  margin-inline: auto;
+}
+
+.au-check {
+  width: 88px;
+  height: 88px;
+  color: var(--au-focus);
+}
+
+.au-check circle {
+  fill: rgba(62, 198, 224, 0.16);
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: au-draw 0.6s var(--au-ease) 0.05s forwards;
+}
+
+.au-check path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: au-draw 0.4s var(--au-ease) 0.5s forwards;
+}
+
+/* ---------- motion ---------- */
+
+@keyframes au-photo-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes au-ken {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.07);
+  }
+}
+
+@keyframes au-swap {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes au-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes au-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes au-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes au-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The spinner keeps turning: it is feedback, not decoration. */
+@media (prefers-reduced-motion: reduce) {
+  .au-photo,
+  .au-swap,
+  .au-panel.shake,
+  .au-error {
+    animation: none;
+  }
+
+  .au-tabs::before,
+  .au-control,
+  .au-btn,
+  .au-btn svg,
+  .au-back svg,
+  .au-link-back svg,
+  .au-meter-bars span {
+    transition: none;
+  }
+
+  .au-check circle,
+  .au-check path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Windows high-contrast: shadows vanish, so give focus and selection real edges. */
+@media (forced-colors: active) {
+  .au-control:focus-within,
+  .au-otp-box:focus {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .au-tabs::before {
+    border: 2px solid Highlight;
+  }
+
+  .au-btn {
+    border: 1px solid ButtonText;
+  }
+
+  .au-meter-bars span.on {
+    background: Highlight;
+  }
+}
+
+/* ---------- >= 640px: roomier header ---------- */
+
+@media (min-width: 640px) {
+  .au-aside {
+    padding: 20px 32px 56px;
+  }
+
+  .au-back {
+    top: 22px;
+    left: 28px;
+  }
+
+  .au-lockup-text {
+    display: block;
+  }
+
+  .au-display {
+    font-size: 36px;
+  }
+
+  .au-main {
+    padding: 32px 32px 40px;
+  }
+
+  .au-head h1 {
+    font-size: 40px;
+  }
+}
+
+/* ---------- >= 1024px: photo panel beside the form ---------- */
+
+@media (min-width: 1024px) {
+  .au {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .au-aside {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    min-height: 520px;
+    padding: 40px 48px 48px;
+  }
+
+  .au-lockup {
+    align-self: flex-start;
+  }
+
+  .au-kicker {
+    display: block;
+  }
+
+  .au-display {
+    max-width: 20ch;
+    font-size: clamp(42px, 3.9vw, 64px);
+    line-height: 0.98;
+  }
+
+  .au-perks {
+    display: grid;
+  }
+
+  .au-main {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+    padding: 28px 56px 32px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .au-shell {
+    margin: auto;
+  }
+
+  .au-back {
+    position: static;
+    align-self: flex-start;
+    margin-left: -8px;
+    padding: 0 14px 0 8px;
+    border-color: transparent;
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    color: var(--au-muted);
+  }
+
+  .au-back:hover {
+    background: rgba(13, 43, 74, 0.06);
+    color: var(--au-ink);
+  }
+
+  .au-back:focus-visible {
+    outline-color: var(--au-focus);
+  }
+
+  .au-head h1 {
+    font-size: 44px;
+  }
+}
+
+/* Short laptop screens: keep the headline, drop the extras. */
+@media (min-width: 1024px) and (max-height: 700px) {
+  .au-perks {
+    display: none;
+  }
+}
+
+@media (min-width: 1600px) {
+  .au-aside {
+    padding: 56px 72px 64px;
+  }
+
+  .au-display {
+    font-size: 68px;
+  }
+}

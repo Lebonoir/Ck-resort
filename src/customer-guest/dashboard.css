@@ -1,0 +1,263 @@
+/* ==========================================================================
+   Guest dashboard chrome: sidebar, topbar, and a light pass on the shared
+   card language. RoleLayout.jsx and workspace.css are shared by all four
+   workspaces, so every rule here is scoped under .role-guest — front desk,
+   operations and admin keep their existing look untouched.
+
+   The palette and gradient formulas are lifted straight from the guest
+   Home hero (booking.css .hero-band) so the sidebar reads as part of the
+   same surface rather than a bolted-on panel.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- sidebar */
+
+.workspace.role-guest .side {
+  background:
+    radial-gradient(420px 320px at 100% 0%, rgba(126, 232, 247, 0.16), transparent 60%),
+    linear-gradient(190deg, #061626 0%, #0a2340 55%, #0d2b4a 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 20px 14px;
+  gap: 6px;
+}
+
+.workspace.role-guest .side-toggle {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.workspace.role-guest .side-toggle:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.workspace.role-guest .side-brand {
+  padding: 6px 8px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.workspace.role-guest .side-brand img {
+  box-shadow: 0 0 0 3px rgba(126, 232, 247, 0.2), 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.workspace.role-guest .side-brand-copy p {
+  font-family: var(--serif);
+  font-size: 17px;
+  letter-spacing: 0.01em;
+}
+
+.workspace.role-guest .side-brand-copy span {
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.workspace.role-guest .side-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 10px 6px;
+  color: rgba(184, 214, 228, 0.6);
+}
+
+.workspace.role-guest .side-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(126, 232, 247, 0.28), transparent);
+}
+
+.workspace.role-guest.side-collapsed .side-label::after {
+  display: none;
+}
+
+.workspace.role-guest .nav-section + .nav-section {
+  margin-top: 14px;
+}
+
+.workspace.role-guest .side nav button {
+  position: relative;
+  border-radius: 12px;
+  color: #cfe6ef;
+  padding: 10px 11px;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.workspace.role-guest .side nav button:hover {
+  background: rgba(255, 255, 255, 0.07);
+  transform: translateX(2px);
+}
+
+.workspace.role-guest.side-collapsed .side nav button:hover {
+  transform: none;
+}
+
+.workspace.role-guest .nav-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #bfe4ee;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.workspace.role-guest .side nav button:hover .nav-icon {
+  transform: scale(1.06);
+}
+
+/* Active item: soft aqua glass fill + a left accent bar flush with the rail's
+   own edge (same idiom as .journey-tile::before on the Home dashboard). */
+.workspace.role-guest .side nav .on {
+  background: linear-gradient(135deg, rgba(126, 232, 247, 0.22), rgba(62, 198, 224, 0.1));
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(126, 232, 247, 0.3);
+}
+
+.workspace.role-guest .side nav .on::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--aqua-bright), var(--aqua));
+}
+
+.workspace.role-guest .side nav .on .nav-icon {
+  background: linear-gradient(160deg, var(--aqua-bright), var(--aqua));
+  color: var(--navy);
+  border-color: transparent;
+  box-shadow: 0 4px 10px rgba(62, 198, 224, 0.35);
+}
+
+.workspace.role-guest .side nav::-webkit-scrollbar-thumb {
+  background: rgba(126, 232, 247, 0.3);
+}
+
+.workspace.role-guest .sign-out {
+  position: relative;
+  margin-top: 12px;
+  padding-top: 12px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: none;
+  color: #9ec9d8;
+}
+
+.workspace.role-guest .sign-out:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-radius: 12px;
+}
+
+/* -------------------------------------------------------------- mobile bar */
+
+@media (max-width: 980px) {
+  .workspace.role-guest .side {
+    background: linear-gradient(120deg, #061626 0%, #0d2b4a 100%);
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .workspace.role-guest .side nav .on::before {
+    left: 8px;
+    top: auto;
+    bottom: -4px;
+    width: auto;
+    right: 8px;
+    height: 2px;
+    border-radius: 2px;
+  }
+
+  .workspace.role-guest .sign-out {
+    border-top: 0;
+    padding-top: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    padding-left: 12px;
+  }
+}
+
+/* ----------------------------------------------------------------- topbar */
+
+.workspace.role-guest .topbar {
+  align-items: flex-end;
+  padding: 26px 32px 16px;
+}
+
+.workspace.role-guest .kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.workspace.role-guest .kicker::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--aqua);
+  box-shadow: 0 0 0 3px rgba(62, 198, 224, 0.18);
+}
+
+.workspace.role-guest .topbar h1 {
+  letter-spacing: -0.01em;
+}
+
+.workspace.role-guest .who {
+  position: relative;
+  padding-left: 54px;
+  border-radius: 18px;
+}
+
+/* A small avatar swatch built with a masked SVG, since the "who" button only
+   ever renders the name as text — no image markup to hook into. */
+.workspace.role-guest .who::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #3ec6e0, #1a4e73);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-8 2-8 5v2h16v-2c0-3-4-5-8-5Z'/%3E%3C/svg%3E")
+    center / 16px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23000' d='M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4 0-8 2-8 5v2h16v-2c0-3-4-5-8-5Z'/%3E%3C/svg%3E")
+    center / 16px no-repeat;
+}
+
+.workspace.role-guest .bell-btn {
+  border-radius: 16px;
+}
+
+@media (max-width: 980px) {
+  .workspace.role-guest .topbar {
+    padding: 18px 16px 8px;
+    align-items: center;
+  }
+}
+
+/* ----------------------------------------------------- card language pass */
+
+.workspace.role-guest .stat,
+.workspace.role-guest .panel {
+  border-radius: 20px;
+  box-shadow: 0 10px 28px rgba(7, 25, 46, 0.05);
+}
+
+.workspace.role-guest .stat:hover {
+  box-shadow: 0 16px 32px rgba(7, 25, 46, 0.09), 0 0 0 4px rgba(62, 198, 224, 0.1);
+}
+
+.workspace.role-guest .list li {
+  border-radius: 14px;
+}
