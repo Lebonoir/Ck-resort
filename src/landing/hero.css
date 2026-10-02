@@ -63,6 +63,16 @@
   font-weight: 600;
 }
 
+/* The nav sits directly on the photo until .solid kicks in on scroll, so its
+   text needs the same shadow insurance as the hero headline below it. */
+.hero-brand strong,
+.hero-brand span,
+.hero-nav-actions a,
+.hero-nav-actions .texty,
+.hero-links a {
+  text-shadow: 0 1px 3px rgba(2, 10, 18, 0.75);
+}
+
 .hero-links a,
 .hero-nav-actions a,
 .hero-nav-actions .texty,
@@ -77,6 +87,27 @@
 .hero-links a:hover,
 .ghost-link:hover {
   color: #fff;
+}
+
+.hero-links a:focus-visible,
+.hero-nav-actions a:focus-visible,
+.ghost-link:focus-visible,
+.see-prices:focus-visible {
+  outline: 2px solid #9be7f3;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* .book-now has a pale fill, so the light ring above would nearly vanish on
+   it — a dark ring reads clearly against its own background instead. */
+.book-now:focus-visible {
+  outline: 2px solid #07192e;
+  outline-offset: 3px;
+}
+
+/* Fully opaque already — the shadow above would just muddy crisp dark-on-light text. */
+.book-now {
+  text-shadow: none;
 }
 
 .book-now {
@@ -145,7 +176,7 @@
   inset: 0;
   z-index: 1;
   background:
-    linear-gradient(180deg, rgba(4, 17, 31, 0.55) 0%, rgba(4, 17, 31, 0.12) 38%, rgba(4, 17, 31, 0.2) 58%, rgba(4, 17, 31, 0.88) 100%);
+    linear-gradient(180deg, rgba(4, 17, 31, 0.55) 0%, rgba(4, 17, 31, 0.22) 38%, rgba(4, 17, 31, 0.34) 58%, rgba(4, 17, 31, 0.88) 100%);
 }
 
 .hero-overlay {
@@ -193,7 +224,8 @@
   text-transform: uppercase;
   font-size: 11px;
   font-weight: 700;
-  color: #9be7f3;
+  color: #c9f3fb;
+  text-shadow: 0 1px 3px rgba(4, 17, 31, 0.9), 0 4px 16px rgba(4, 17, 31, 0.7);
 }
 
 .hero-kicker.dark {
@@ -203,24 +235,33 @@
 .hero-overlay h1 {
   margin: 0;
   font-family: var(--serif);
-  font-weight: 500;
+  font-weight: 600;
   font-size: clamp(48px, 7.4vw, 92px);
   line-height: 0.92;
   letter-spacing: -0.03em;
   max-width: 14ch;
+  color: #fff;
+  /* A tight, high-opacity shadow holds the letterforms together against the
+     photo's own highlights; a softer, wider one keeps the whole line legible
+     over both the darkest and the most lit-up patches of the image. */
+  text-shadow: 0 1px 2px rgba(2, 10, 18, 0.95), 0 10px 34px rgba(2, 10, 18, 0.75);
 }
 
 .hero-overlay h1 em {
   display: block;
   font-style: italic;
   font-weight: 500;
-  color: #d7f6fc;
+  /* Cool, near-white blue reads clearly against both the warm string lights
+     and the green foliage the sub-headline sits over — the previous pale
+     cyan leaned too close to the foliage's own hue to stay legible there. */
+  color: #eef8ff;
 }
 
 .hero-where {
   margin: 18px 0 0;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 16px;
+  text-shadow: 0 1px 3px rgba(2, 10, 18, 0.85), 0 6px 20px rgba(2, 10, 18, 0.6);
 }
 
 .hero-cta-row {
@@ -236,6 +277,7 @@
   font-weight: 700;
   border-bottom: 1px solid rgba(255, 255, 255, 0.4);
   padding-bottom: 4px;
+  text-shadow: 0 1px 3px rgba(2, 10, 18, 0.75), 0 6px 20px rgba(2, 10, 18, 0.5);
 }
 
 .see-prices {
@@ -542,6 +584,13 @@
   cursor: zoom-in;
 }
 
+.gallery-hit:focus-visible,
+.rate-flyer-hit:focus-visible,
+.flyer-hit:focus-visible {
+  outline: 3px solid #3ec6e0;
+  outline-offset: -3px;
+}
+
 .bento img {
   width: 100%;
   height: 100%;
@@ -771,11 +820,13 @@
 .close-band h2 {
   color: #fff;
   max-width: 16ch;
+  text-shadow: 0 2px 6px rgba(2, 10, 18, 0.5);
 }
 
 .close-band p {
   color: rgba(255, 255, 255, 0.82);
   margin: 0 0 22px;
+  text-shadow: 0 1px 4px rgba(2, 10, 18, 0.45);
 }
 
 .hero-foot {

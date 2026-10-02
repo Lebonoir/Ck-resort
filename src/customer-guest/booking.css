@@ -110,45 +110,6 @@
   gap: 16px;
 }
 
-.room-detail {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #f4fafc;
-  border: 1px solid #dbe7ee;
-  display: grid;
-  gap: 6px;
-}
-
-.room-detail h4 {
-  margin: 0;
-  font-size: 15px;
-  color: var(--navy);
-}
-
-.room-detail p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--navy-mid);
-}
-
-.room-detail-kicker {
-  font-size: 11px !important;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--muted) !important;
-}
-
-.room-detail-meta {
-  font-weight: 700;
-}
-
-.room-detail-note {
-  color: var(--muted) !important;
-}
-
 .stack {
   display: grid;
   gap: 10px;
@@ -225,6 +186,58 @@
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
+}
+
+/* Lives in the Summary aside now (see .room-capacity-hint below), not stacked
+   under the room list. `.quote p` styles every <p> as an uppercase label, so
+   this needs enough specificity to override that for the two states here. */
+.quote .room-capacity-hint {
+  margin: 0 0 14px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.quote .room-capacity-hint.hint-warn {
+  font-weight: 600;
+  color: var(--danger);
+}
+
+/* A requirement that blocks Continue needs the same weight as any other form
+   error in the app (icon + tinted card), not a bare line of bold red text. */
+.hint-warn {
+  display: flex;
+  /* Top-align rather than center: once the copy wraps to two lines (a small
+     phone, or a big shortfall), a centered icon drifts away from the first
+     line and starts looking accidental. */
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fdecee;
+  border: 1px solid rgba(194, 59, 74, 0.16);
+  color: var(--danger);
+  font-weight: 600;
+  line-height: 1.45;
+  animation: rowIn 0.3s ease both;
+}
+
+.hint-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  /* Optically centers the icon against the text's cap-height rather than
+     its full line-height. */
+  margin-top: 2px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .book-nav {
