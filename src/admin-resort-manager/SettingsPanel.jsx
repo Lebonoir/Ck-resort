@@ -22,7 +22,7 @@ const POLICY_HELP = {
   retain:
     'When a confirmed guest does not arrive, the 50% downpayment they paid stays with the resort as revenue.',
   credit:
-    'The paid downpayment is recorded on the no-show booking as credit and shown to the guest. It is not deducted from their next booking automatically — lower the total when approving their next stay.',
+    'The paid downpayment is recorded on the no-show booking as credit and shown to the guest. It is not deducted from their next booking automatically — lower the total on their next stay.',
 }
 
 function GeneralSettings({ onError, onSaved }) {
@@ -83,7 +83,7 @@ function GeneralSettings({ onError, onSaved }) {
               setLifecycle((row) => ({ ...row, downpayment_hours: Number(event.target.value) || 1 }))
             }
           />
-          <small className="field-help">Unpaid approved bookings expire after this, or at the start time if sooner.</small>
+          <small className="field-help">Bookings with an unpaid downpayment expire after this, or at the start time if sooner.</small>
         </label>
         <label>
           No-show grace (minutes)

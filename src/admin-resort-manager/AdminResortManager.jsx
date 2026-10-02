@@ -5,7 +5,6 @@ import { useConfirm } from '../shared/ConfirmDialog'
 import {
   adminMetrics,
   adminReports,
-  approveBooking,
   deleteNotification,
   getCatalog,
   listBookings,
@@ -13,7 +12,6 @@ import {
   listUsers,
   markAllNotificationsRead,
   markNotificationRead,
-  rejectBooking,
 } from '../lib/api'
 import { peso, prettyDate, prettyDateTime, rpcError, STATUS_LABELS, statusTone, verifiedPaid } from '../lib/format'
 import UsersPanel from './UsersPanel'
@@ -41,8 +39,6 @@ export default function AdminResortManager({ session, onSignOut }) {
   const [reports, setReports] = useState(null)
   const [notes, setNotes] = useState([])
   const [selectedId, setSelectedId] = useState('')
-  const [override, setOverride] = useState('')
-  const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [busy, setBusy] = useState('')
@@ -102,13 +98,9 @@ export default function AdminResortManager({ session, onSignOut }) {
         busy={Boolean(busy)}
         tone={error ? 'error' : 'ok'}
         message={
-          busy === 'approve'
-            ? 'Approving reservation…'
-            : busy === 'reject'
-              ? 'Rejecting reservation…'
-              : busy === 'rates'
-                ? 'Saving…'
-                : error || saved
+          busy === 'rates'
+            ? 'Saving…'
+            : error || saved
         }
       />
 
@@ -314,75 +306,6 @@ export default function AdminResortManager({ session, onSignOut }) {
                   <b>{STATUS_LABELS[item.status]}</b>
                 </div>
               </div>
-              {item.status === 'pending_approval' && (
-                <>
-                  <label>
-                    Custom total override (optional)
-                    <input type="number" min="0" value={override} onChange={(event) => setOverride(event.target.value)} placeholder={String(item.total_amount)} />
-                  </label>
-                  <label>
-                    Rejection reason
-                    <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Optional note" />
-                  </label>
-                  <div className="action-row">
-                    <button
-                      type="button"
-                      className="book-btn"
-                      disabled={Boolean(busy)}
-                      onClick={async () => {
-                        const ok = await confirm({
-                          title: 'Approve reservation',
-                          message: `Approve ${item.reference} for ${item.guest_name}? The guest will be asked to pay a 50% downpayment.`,
-                          confirmLabel: 'Approve',
-                        })
-                        if (!ok) return
-                        setError('')
-                        setSaved('')
-                        setBusy('approve')
-                        try {
-                          await approveBooking(item.id, override ? Number(override) : null)
-                          setSaved(`${item.reference} approved. Guest can now pay 50%.`)
-                          await reload()
-                        } catch (err) {
-                          setError(rpcError(err))
-                        } finally {
-                          setBusy('')
-                        }
-                      }}
-                    >
-                      {busy === 'approve' ? 'Approving…' : 'Approve'}
-                    </button>
-                    <button
-                      type="button"
-                      className="desk-ghost"
-                      disabled={Boolean(busy)}
-                      onClick={async () => {
-                        const ok = await confirm({
-                          title: 'Reject reservation',
-                          message: `Reject ${item.reference}? The guest will be notified.`,
-                          confirmLabel: 'Reject',
-                          danger: true,
-                        })
-                        if (!ok) return
-                        setError('')
-                        setSaved('')
-                        setBusy('reject')
-                        try {
-                          await rejectBooking(item.id, reason || 'Slot not available')
-                          setSaved(`${item.reference} rejected.`)
-                          await reload()
-                        } catch (err) {
-                          setError(rpcError(err))
-                        } finally {
-                          setBusy('')
-                        }
-                      }}
-                    >
-                      {busy === 'reject' ? 'Rejecting…' : 'Reject'}
-                    </button>
-                  </div>
-                </>
-              )}
               {error || saved ? <p className={`flash inline-flash ${error ? 'error' : 'ok'}`}>{error || saved}</p> : null}
             </section>
           )}

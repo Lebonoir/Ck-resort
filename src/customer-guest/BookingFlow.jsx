@@ -9,6 +9,7 @@ import {
   getClosedDates,
   getOccupiedDates,
   quoteBooking,
+  startDownpayment,
   submitBooking,
 } from '../lib/api'
 import { peso, rpcError } from '../lib/format'
@@ -61,7 +62,6 @@ export default function BookingFlow({
   const [occupied, setOccupied] = useState([])
   const [closures, setClosures] = useState([])
   const [rules, setRules] = useState(DEFAULT_BOOKING_RULES)
-  const [detailUnitId, setDetailUnitId] = useState('')
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(null)
@@ -229,8 +229,8 @@ export default function BookingFlow({
     }
     const ok = await confirm({
       title: 'Send booking request',
-      message: `Submit ${summary.package_label || 'this stay'} on ${booking.stay_date} for ${peso(summary.total)}? The 50% downpayment is due only after the manager approves.`,
-      confirmLabel: 'Send request',
+      message: `Submit ${summary.package_label || 'this stay'} on ${booking.stay_date} for ${peso(summary.total)}? You'll pay the 50% downpayment next to reserve it.`,
+      confirmLabel: 'Continue to payment',
     })
     if (!ok) return
     await submitNow()
@@ -242,6 +242,14 @@ export default function BookingFlow({
     try {
       const created = await submitBooking(payload)
       setSent(created)
+      // No manager approval anymore: the booking already holds its slot, so go
+      // straight to PayMongo. The webhook / verify call confirms it once paid.
+      try {
+        const { checkoutUrl } = await startDownpayment(created.id)
+        window.location.replace(checkoutUrl)
+      } catch (payErr) {
+        setError(rpcError(payErr))
+      }
     } catch (err) {
       const message = rpcError(err)
       if (/already have an active reservation/i.test(message)) {
@@ -284,13 +292,14 @@ export default function BookingFlow({
   if (sent) {
     return (
       <>
-        <ActionToast tone="ok" message={`${sent.reference} sent for approval.`} />
+        <ActionToast tone="ok" message={`${sent.reference} is held for you.`} />
+        <ActionToast tone="error" message={error} />
         <div className="book-done">
           <div className="check-burst">✓</div>
-          <h2>Booking sent for approval</h2>
+          <h2>Almost reserved</h2>
           <p>
-            {sent.reference} is with the resort manager. After approval you will pay the 50% downpayment of{' '}
-            {peso(sent.downpayment_amount)} through PayMongo.
+            {sent.reference} is held for you. It is confirmed as soon as the 50% downpayment of{' '}
+            {peso(sent.downpayment_amount)} is paid through PayMongo. If checkout did not open, pay from My reservations.
           </p>
           <button type="button" className="book-btn" onClick={onDone}>
             View my reservations
@@ -306,8 +315,12 @@ export default function BookingFlow({
       catalog.rooms.find((item) => item.id === unit.room_id)?.slug === 'gazebo',
   )
 
-  const detailUnit = (catalog.units || []).find((unit) => unit.id === detailUnitId) || null
-  const detailRoom = detailUnit ? catalog.rooms.find((room) => room.id === detailUnit.room_id) : null
+  // A single small room is fine for a small group, but a large party needs
+  // enough rooms selected to actually sleep everyone — not just one.
+  const selectedCapacity = (catalog.units || [])
+    .filter((unit) => booking.room_unit_ids.includes(unit.id))
+    .reduce((sum, unit) => sum + (Number(unit.capacity) || 0), 0)
+  const roomsCoverPax = selectedCapacity >= booking.pax
 
   return (
     <div className="book">
@@ -468,10 +481,7 @@ export default function BookingFlow({
                     type="button"
                     disabled={locked}
                     className={`room ${booking.room_unit_ids.includes(unit.id) ? 'on' : ''} ${locked ? 'locked' : ''}`}
-                    onClick={() => {
-                      setDetailUnitId(unit.id)
-                      toggleUnit(unit.id, room)
-                    }}
+                    onClick={() => toggleUnit(unit.id, room)}
                   >
                     <b>
                       {room.name} · {unit.name}
@@ -538,8 +548,8 @@ export default function BookingFlow({
             <div className="stack">
               <p className="hint">
                 {guestMode
-                  ? "You'll sign up or log in next — this exact request is sent right after, nothing to refill. Your request then goes to the resort manager first, and the 50% downpayment is collected through PayMongo only after approval."
-                  : 'Your request is sent to the resort manager first. The 50% downpayment is collected through PayMongo only after approval. Totals are calculated on the server from current rates.'}
+                  ? "You'll sign up or log in next — this exact request is sent right after, nothing to refill. Your slot is then held and you go straight to PayMongo for the 50% downpayment — it is reserved as soon as that is paid."
+                  : 'Your slot is held and you go straight to PayMongo for the 50% downpayment — it is reserved as soon as that is paid. Totals are calculated on the server from current rates.'}
               </p>
               {error ? <p className="otp-error">{error}</p> : null}
             </div>
@@ -557,7 +567,12 @@ export default function BookingFlow({
               <span />
             )}
             {step < 3 ? (
-              <button type="button" className="book-btn" disabled={!booking.stay_date} onClick={() => setStep(step + 1)}>
+              <button
+                type="button"
+                className="book-btn"
+                disabled={!booking.stay_date || (step === 1 && !roomsCoverPax)}
+                onClick={() => setStep(step + 1)}
+              >
                 Continue
               </button>
             ) : (
@@ -570,6 +585,23 @@ export default function BookingFlow({
 
         <aside className="quote">
           <p>Summary</p>
+          {step === 1 &&
+            (roomsCoverPax ? (
+              <p className="hint room-capacity-hint">{`Selected rooms sleep ${selectedCapacity} of your ${booking.pax} guests.`}</p>
+            ) : (
+              <p className="hint hint-warn room-capacity-hint">
+                <svg className="hint-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7.5v5" />
+                  <path d="M12 15.5h.01" />
+                </svg>
+                <span>
+                  {`Selected rooms sleep ${selectedCapacity} of your ${booking.pax} guests. Pick ${
+                    booking.pax - selectedCapacity
+                  } more pax worth of rooms to continue.`}
+                </span>
+              </p>
+            ))}
           {summary.lines.length === 0 ? (
             <small>Pick a date to see the estimate.</small>
           ) : (
@@ -590,30 +622,12 @@ export default function BookingFlow({
               </strong>
             </div>
             <div>
-              <span>50% DP after approval</span>
+              <span>50% DP</span>
               <strong>
                 <TweenNumber value={summary.downpayment} format={peso} />
               </strong>
             </div>
           </div>
-
-          {detailUnit ? (
-            <div className="room-detail">
-              <p className="room-detail-kicker">Room details</p>
-              <h4>
-                {detailRoom?.name} · {detailUnit.name}
-              </h4>
-              <p className="room-detail-meta">
-                {peso(detailUnit.rate)} · sleeps {detailUnit.capacity || '—'}
-                {detailUnit.bed_count ? ` · ${detailUnit.bed_count} bed${detailUnit.bed_count === 1 ? '' : 's'}` : ''}
-              </p>
-              {detailUnit.description ? <p>{detailUnit.description}</p> : null}
-              {detailRoom?.description ? <p className="room-detail-note">{detailRoom.description}</p> : null}
-              {!detailUnit.description && !detailRoom?.description ? (
-                <p className="room-detail-note">No description saved for this room yet.</p>
-              ) : null}
-            </div>
-          ) : null}
         </aside>
       </div>
     </div>

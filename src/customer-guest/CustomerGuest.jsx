@@ -465,8 +465,8 @@ export default function CustomerGuest({ session, onSignOut }) {
               <p className="band-kicker">Choose your escape</p>
               <h2>Book the pool, the cabanas, the whole place.</h2>
               <p className="band-lede">
-                Pick a package and date, add rooms, then rentals and catering. A 50% downpayment is only due once the
-                manager approves your request.
+                Pick a package and date, add rooms, then rentals and catering. Reserve it by paying a 50% downpayment
+                right after you book.
               </p>
             </div>
             <div className="pkg-grid">
