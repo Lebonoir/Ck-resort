@@ -228,8 +228,8 @@ export default function BookingFlow({
       return
     }
     const ok = await confirm({
-      title: 'Send booking request',
-      message: `Submit ${summary.package_label || 'this stay'} on ${booking.stay_date} for ${peso(summary.total)}? You'll pay the 50% downpayment next to reserve it.`,
+      title: 'Pay 50% downpayment',
+      message: `Reserve ${summary.package_label || 'this stay'} on ${booking.stay_date} (total ${peso(summary.total)})? You'll pay the 50% downpayment of ${peso(summary.downpayment)} on PayMongo next.`,
       confirmLabel: 'Continue to payment',
     })
     if (!ok) return
@@ -327,7 +327,7 @@ export default function BookingFlow({
       <ActionToast
         busy={sending}
         tone={error ? 'error' : 'ok'}
-        message={sending ? 'Sending booking request…' : error}
+        message={sending ? 'Preparing your payment…' : error}
       />
       <ol className="steps">
         {STEPS.map((label, index) => (
@@ -577,7 +577,7 @@ export default function BookingFlow({
               </button>
             ) : (
               <button type="button" className="book-btn" disabled={sending || !booking.stay_date} onClick={sendRequest}>
-                {sending ? 'Sending…' : guestMode ? 'Continue to sign up' : 'Send booking request'}
+                {sending ? 'Opening payment…' : guestMode ? 'Continue to sign up' : `Pay 50% downpayment${summary.downpayment ? ` · ${peso(summary.downpayment)}` : ''}`}
               </button>
             )}
           </div>
