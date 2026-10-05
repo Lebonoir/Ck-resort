@@ -195,8 +195,125 @@
   justify-content: flex-end;
 }
 
+.user-directory {
+  display: grid;
+  gap: 8px;
+}
+
 .user-directory li {
   align-items: center;
+  padding: 12px 14px;
+  border: 1px solid #e3edf2;
+  background: #fff;
+}
+
+.workspace.role-admin:not(.role-guest) .user-directory li {
+  background: #fff;
+}
+
+.user-directory li:hover,
+.workspace.role-admin:not(.role-guest) .user-directory li:hover {
+  transform: none;
+  background: #f4fafc;
+  border-color: #cfe3ec;
+}
+
+.user-ident {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.user-avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--navy);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.user-meta {
+  min-width: 0;
+}
+
+.user-meta small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-directory .pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.user-directory .pill.ok {
+  background: rgba(28, 154, 106, 0.14);
+  color: #0f7a51;
+}
+
+.user-directory .desk-ghost {
+  padding: 9px 14px;
+  min-height: 40px;
+  border: 1px solid #d7e3ea;
+  background: #fff;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.user-directory .desk-ghost:hover {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.user-directory .desk-ghost:focus-visible {
+  outline: 2px solid var(--aqua);
+  outline-offset: 2px;
+}
+
+.users-page .folder-chips {
+  padding: 2px 2px 6px;
+}
+
+.users-page .folder-head {
+  padding: 14px 16px;
+}
+
+.users-page .folder-head small {
+  background: #eef4f7;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 12px;
+}
+
+.users-page .folder-body > ul {
+  padding: 0 12px;
+}
+
+.users-page .folder.open .folder-body > ul {
+  padding-bottom: 12px;
+}
+
+@media (max-width: 560px) {
+  .user-directory li {
+    flex-wrap: wrap;
+  }
+
+  .user-directory .user-row-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .check-inline {
@@ -727,5 +844,564 @@
   .settings-tabs,
   .backup-scope {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ================================================================ polish ===
+   Admin-wide visual layer. Presentation only; every rule is scoped to
+   .role-admin so the guest, front desk and operations workspaces are unchanged. */
+.workspace.role-admin {
+  --admin-line: #dde8ee;
+  --admin-tint: #f4fafc;
+  --admin-shadow: 0 1px 2px rgba(7, 25, 46, 0.04), 0 8px 24px rgba(7, 25, 46, 0.05);
+  --admin-ring: 0 0 0 3px rgba(62, 198, 224, 0.28);
+}
+
+/* Sidebar: clearer active marker, calmer hover, readable focus. */
+.workspace.role-admin .side nav button {
+  position: relative;
+  min-height: 44px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.workspace.role-admin .side nav .on::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--aqua);
+}
+
+.workspace.role-admin .side nav button:focus-visible,
+.workspace.role-admin .sign-out:focus-visible,
+.workspace.role-admin .side-toggle:focus-visible {
+  outline: 2px solid var(--aqua);
+  outline-offset: 2px;
+}
+
+.workspace.role-admin .side-label {
+  color: #8fb2c3;
+}
+
+/* Header. */
+.workspace.role-admin .topbar {
+  padding: 26px 32px 10px;
+  align-items: flex-end;
+}
+
+.workspace.role-admin .topbar h1 {
+  font-size: 34px;
+  letter-spacing: -0.01em;
+}
+
+.workspace.role-admin .kicker {
+  color: #5d7787;
+  font-weight: 700;
+}
+
+.workspace.role-admin .who {
+  border: 1px solid var(--admin-line);
+  box-shadow: var(--admin-shadow);
+}
+
+.workspace.role-admin .body {
+  padding: 12px 32px 40px;
+  gap: 18px;
+}
+
+/* Stat band: tighter, tabular numbers, no hover jump. */
+.workspace.role-admin:not(.role-guest) .stats {
+  border-radius: 20px;
+  box-shadow: 0 12px 28px rgba(7, 25, 46, 0.16);
+}
+
+.workspace.role-admin:not(.role-guest) .stat {
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.workspace.role-admin:not(.role-guest) .stat:hover {
+  transform: none;
+}
+
+.workspace.role-admin .stat strong,
+.workspace.role-admin .stat strong .count-up {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.workspace.role-admin:not(.role-guest) .stat p {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+/* Cards. */
+.workspace.role-admin:not(.role-guest) .admin-card,
+.workspace.role-admin:not(.role-guest) .panel {
+  border: 1px solid var(--admin-line);
+  border-radius: 18px;
+  padding: 22px;
+  background: #fff;
+  box-shadow: var(--admin-shadow);
+}
+
+.workspace.role-admin .admin-card {
+  gap: 14px;
+}
+
+.workspace.role-admin .admin-card h3 {
+  font-size: 24px;
+  letter-spacing: -0.01em;
+}
+
+.workspace.role-admin .admin-note,
+.workspace.role-admin .admin-list small {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #587182;
+}
+
+/* Rows and selectable lists. */
+.workspace.role-admin:not(.role-guest) .list li,
+.workspace.role-admin:not(.role-guest) .admin-list button {
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.workspace.role-admin:not(.role-guest) .list li:hover,
+.workspace.role-admin:not(.role-guest) .admin-list button:hover {
+  transform: none;
+  background: var(--admin-tint);
+  border-color: #c5dde8;
+}
+
+.workspace.role-admin:not(.role-guest) .admin-list .on {
+  background: #eaf7fb;
+  border-color: var(--aqua);
+  box-shadow: none;
+}
+
+.workspace.role-admin .admin-list button:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-ring);
+}
+
+/* Detail grids read as a clean key/value sheet. */
+.workspace.role-admin .detail-grid div {
+  border-bottom: 1px solid #e8f0f4;
+  padding: 10px 0;
+}
+
+.workspace.role-admin .detail-grid div:last-child {
+  border-bottom: 0;
+}
+
+.workspace.role-admin .detail-grid div > :first-child {
+  color: #587182;
+}
+
+/* Buttons: one height, visible feedback, proper focus. */
+.workspace.role-admin .book-btn,
+.workspace.role-admin .admin-save,
+.workspace.role-admin .admin-actions button,
+.workspace.role-admin .user-form button {
+  min-height: 44px;
+  border-radius: 12px;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
+}
+
+.workspace.role-admin .book-btn:hover:not(:disabled),
+.workspace.role-admin .admin-save:hover:not(:disabled),
+.workspace.role-admin .admin-actions button:hover:not(:disabled),
+.workspace.role-admin .user-form button:hover:not(:disabled) {
+  background: #14406a;
+}
+
+.workspace.role-admin .book-btn:active:not(:disabled),
+.workspace.role-admin .admin-save:active:not(:disabled),
+.workspace.role-admin .admin-actions button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.workspace.role-admin .desk-ghost,
+.workspace.role-admin .admin-actions .reject,
+.workspace.role-admin .user-form .desk-ghost {
+  min-height: 44px;
+  border: 1px solid var(--admin-line);
+  background: #fff;
+  color: var(--navy);
+}
+
+.workspace.role-admin .desk-ghost:hover:not(:disabled),
+.workspace.role-admin .admin-actions .reject:hover:not(:disabled),
+.workspace.role-admin .user-form .desk-ghost:hover:not(:disabled) {
+  background: var(--admin-tint);
+  border-color: #c5dde8;
+}
+
+.workspace.role-admin .book-btn:focus-visible,
+.workspace.role-admin .admin-save:focus-visible,
+.workspace.role-admin .desk-ghost:focus-visible,
+.workspace.role-admin .admin-actions button:focus-visible,
+.workspace.role-admin .user-form button:focus-visible,
+.workspace.role-admin .settings-tabs button:focus-visible,
+.workspace.role-admin .folder-head:focus-visible,
+.workspace.role-admin .folder-chips button:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-ring);
+}
+
+/* Form fields: visible focus state. */
+.workspace.role-admin .admin-card input,
+.workspace.role-admin .admin-card select,
+.workspace.role-admin .account-modal input,
+.workspace.role-admin .account-modal select {
+  min-height: 44px;
+  border: 1.5px solid #cfdde5;
+  border-radius: 12px;
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.workspace.role-admin .admin-card input:focus,
+.workspace.role-admin .admin-card select:focus,
+.workspace.role-admin .account-modal input:focus,
+.workspace.role-admin .account-modal select:focus {
+  outline: none;
+  border-color: var(--aqua);
+  box-shadow: var(--admin-ring);
+}
+
+.workspace.role-admin .admin-card input[type="checkbox"],
+.workspace.role-admin .account-modal input[type="checkbox"] {
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--navy);
+}
+
+/* Folder chips and headers. */
+.workspace.role-admin:not(.role-guest) .folder-chips button {
+  min-height: 40px;
+  border: 1px solid var(--admin-line);
+  background: #fff;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.workspace.role-admin:not(.role-guest) .folder-chips button:hover {
+  background: var(--admin-tint);
+}
+
+.workspace.role-admin:not(.role-guest) .folder-chips .on {
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+.workspace.role-admin .folder-head {
+  min-height: 48px;
+}
+
+.workspace.role-admin .folder-head:hover {
+  background: var(--admin-tint);
+}
+
+/* Settings tabs. */
+.workspace.role-admin .settings-tabs button {
+  background: #fff;
+  border: 1px solid var(--admin-line);
+  box-shadow: var(--admin-shadow);
+}
+
+.workspace.role-admin .settings-tabs button:hover {
+  transform: none;
+  background: var(--admin-tint);
+}
+
+.workspace.role-admin .settings-tabs .on {
+  background: var(--navy);
+  border-color: var(--navy);
+}
+
+/* Status pills share one shape. */
+.workspace.role-admin .pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Analytics bars. */
+.workspace.role-admin .analytics-track,
+.workspace.role-admin .bar {
+  height: 8px;
+  background: #e6eff4;
+}
+
+.workspace.role-admin .analytics-bars li {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Collapsed folders: the list padding used to leave a visible sliver. */
+.workspace.role-admin .folder-body > ul {
+  padding: 0 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.workspace.role-admin .folder.open .folder-body > ul {
+  padding-bottom: 12px;
+}
+
+.workspace.role-admin .folder-stack {
+  gap: 12px;
+}
+
+/* Panels (Reports): give stacked content room instead of butting it together. */
+.workspace.role-admin .panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.workspace.role-admin .panel h2 {
+  margin: 0;
+  color: #587182;
+}
+
+.workspace.role-admin .panel > .admin-save {
+  justify-self: start;
+  flex: none;
+  padding: 10px 18px;
+}
+
+/* Sales summary rows: name left, figures right, no run-together text. */
+.workspace.role-admin .report-bars {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace.role-admin .report-bars li > div {
+  width: 100%;
+}
+
+.workspace.role-admin .report-bars b {
+  display: grid;
+  gap: 2px;
+  font-size: 16px;
+  text-transform: capitalize;
+}
+
+.workspace.role-admin .report-bars small {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #587182;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Analytics cards: the masonry cards are inline-block, so spacing is explicit. */
+.workspace.role-admin .analytics-masonry > .admin-card {
+  padding: 22px;
+}
+
+.workspace.role-admin .analytics-masonry > .admin-card > * + * {
+  margin-top: 14px;
+}
+
+.workspace.role-admin .analytics-masonry > .admin-card h3 {
+  margin-bottom: 0;
+}
+
+.workspace.role-admin .analytics-masonry > .admin-card h3:not(:first-child) {
+  margin-top: 26px !important;
+  padding-top: 22px;
+  border-top: 1px solid #e8f0f4;
+}
+
+.workspace.role-admin .analytics-bars {
+  gap: 14px;
+}
+
+.workspace.role-admin .analytics-bars li {
+  grid-template-columns: minmax(80px, 130px) 1fr minmax(64px, auto);
+  gap: 14px;
+}
+
+.workspace.role-admin .analytics-bars li > b {
+  text-align: right;
+  color: var(--navy);
+}
+
+.workspace.role-admin .analytics-bar-label {
+  font-weight: 600;
+  color: #35566a;
+}
+
+.workspace.role-admin .analytics-page .ticket-lines li {
+  border-bottom: 1px solid #e8f0f4;
+  padding: 11px 0;
+}
+
+.workspace.role-admin .analytics-page .ticket-lines .ticket-subtotal {
+  border-top: 1px solid #cfdde5;
+  border-bottom: 0;
+  margin-top: 4px;
+  padding-top: 13px;
+  font-size: 15px;
+}
+
+/* Analytics typography: sans titles, medium labels, tabular figures. */
+.workspace.role-admin .analytics-page .admin-card h3 {
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: var(--navy);
+}
+
+.workspace.role-admin .analytics-page .ticket-lines li {
+  font-size: 14px;
+  font-weight: 400;
+  color: #587182;
+}
+
+.workspace.role-admin .analytics-page .ticket-lines li b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.workspace.role-admin .analytics-page .ticket-lines .ticket-subtotal b {
+  font-size: 17px;
+}
+
+.workspace.role-admin .analytics-page .analytics-bar-label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #35566a;
+}
+
+.workspace.role-admin .analytics-page .analytics-bars li > b {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.workspace.role-admin .analytics-page .stat strong,
+.workspace.role-admin .analytics-page .stat strong .count-up {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 32px;
+}
+
+/* Bars: outlined track and an outlined, softly filled bar. */
+.workspace.role-admin .analytics-page .analytics-track {
+  box-sizing: border-box;
+  height: 12px;
+  border: 1px solid #c9dae3;
+  background: #f4f9fb;
+  padding: 1px;
+}
+
+.workspace.role-admin .analytics-page .analytics-fill {
+  box-sizing: border-box;
+  min-width: 8px;
+  border: 1.5px solid #1b8ba8;
+  background: rgba(62, 198, 224, 0.38);
+}
+
+/* Guest satisfaction: same outlined bars and sans typography as the charts above. */
+.workspace.role-admin .rating-score strong {
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.workspace.role-admin .rating-bars {
+  gap: 14px;
+}
+
+.workspace.role-admin .rating-bars li {
+  gap: 14px;
+}
+
+.workspace.role-admin .rating-bars li > span:first-child {
+  font-size: 13px;
+  font-weight: 500;
+  color: #35566a;
+}
+
+.workspace.role-admin .rating-bars b {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.workspace.role-admin .rating-bars .rating-track {
+  box-sizing: border-box;
+  height: 12px;
+  border: 1px solid #c9dae3;
+  background: #f4f9fb;
+  padding: 1px;
+}
+
+.workspace.role-admin .rating-bars .rating-track .rating-fill {
+  box-sizing: border-box;
+  min-width: 8px;
+  border: 1.5px solid #1b8ba8;
+  background: rgba(62, 198, 224, 0.38);
+}
+
+/* Backup tiles. */
+.workspace.role-admin .backup-scope li {
+  background: var(--admin-tint);
+  border-radius: 12px;
+}
+
+@media (max-width: 560px) {
+  .workspace.role-admin .analytics-bars li {
+    grid-template-columns: 1fr auto;
+  }
+
+  .workspace.role-admin .analytics-bars li .analytics-track {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}
+
+@media (max-width: 980px) {
+  .workspace.role-admin .topbar {
+    padding: 20px 18px 8px;
+  }
+
+  .workspace.role-admin .body {
+    padding: 10px 18px 32px;
+  }
+
+  .workspace.role-admin:not(.role-guest) .admin-card,
+  .workspace.role-admin:not(.role-guest) .panel {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace.role-admin * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

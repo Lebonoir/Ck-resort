@@ -268,14 +268,19 @@ export default function UsersPanel({ users, onReload, onError, onSaved }) {
           }))}
           renderItem={(user) => (
             <li key={user.id}>
-              <div>
-                <b>
-                  {user.first_name} {user.last_name}
-                </b>
-                <small>
-                  {ROLE_LABELS[user.role] || user.role} · {user.email}
-                  {user.contact ? ` · ${user.contact}` : ''}
-                </small>
+              <div className="user-ident">
+                <span className="user-avatar" aria-hidden="true">
+                  {`${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || '?'}
+                </span>
+                <div className="user-meta">
+                  <b>
+                    {user.first_name} {user.last_name}
+                  </b>
+                  <small>
+                    {ROLE_LABELS[user.role] || user.role} · {user.email}
+                    {user.contact ? ` · ${user.contact}` : ''}
+                  </small>
+                </div>
               </div>
               <div className="user-row-actions">
                 <span className={`pill ${user.is_active ? 'ok' : 'no'}`}>{user.is_active ? 'active' : 'inactive'}</span>
