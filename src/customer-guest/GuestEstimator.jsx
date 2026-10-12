@@ -19,7 +19,7 @@ export function readPendingPlan() {
   }
 }
 
-export default function GuestEstimator({ onClose, onRequireAuth }) {
+export default function GuestEstimator({ onClose, onRequireAuth, initialBooking = null }) {
   useEffect(() => {
     function onKey(event) {
       if (event.key === 'Escape') onClose()
@@ -43,9 +43,10 @@ export default function GuestEstimator({ onClose, onRequireAuth }) {
   }
 
   return (
+    // Clicking the backdrop does nothing on purpose: a stray click would throw
+    // away the plan the guest has built. Close with the × button or Escape.
     <div
       className="plan-overlay"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-label="Plan your visit"
@@ -57,9 +58,15 @@ export default function GuestEstimator({ onClose, onRequireAuth }) {
         <div className="plan-modal-head">
           <p className="plan-kicker">No account needed yet</p>
           <h3>Plan your visit</h3>
-          <p>Pick a package, date, rooms, and rentals to see the full price. You only sign up when you're ready to send the request.</p>
+          <p>Pick a package, date, rooms, and rentals to see the full price. You only sign up when you're ready to pay the 50% downpayment.</p>
         </div>
-        <BookingFlow guestMode onRequireAuth={handleRequireAuth} onDone={() => {}} />
+        <BookingFlow
+          guestMode
+          initialTourType={initialBooking?.tour_type || 'day'}
+          initialBooking={initialBooking}
+          onRequireAuth={handleRequireAuth}
+          onDone={() => {}}
+        />
       </div>
     </div>
   )

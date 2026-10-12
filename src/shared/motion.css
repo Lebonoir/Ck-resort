@@ -32,8 +32,120 @@
   letter-spacing: inherit;
 }
 
-.tween-num.flashing {
-  color: #1a4e73;
+/* Rolling amount (booking summary totals). */
+.roll-num {
+  position: relative;
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.5s ease;
+}
+
+.roll-num.up {
+  color: #0e7f9c;
+}
+
+.roll-num.down {
+  color: #14744f;
+}
+
+.roll-row {
+  display: inline-flex;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.roll-digit {
+  display: inline-block;
+  height: 1.2em;
+  overflow: hidden;
+  animation: rollDigitIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.roll-strip {
+  display: block;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.roll-strip > span {
+  display: block;
+  height: 1.2em;
+  text-align: center;
+}
+
+.roll-sep {
+  display: inline-block;
+  height: 1.2em;
+}
+
+.roll-delta {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: rollDelta 1.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.roll-delta.up {
+  background: #e3f5fa;
+  color: #0e7f9c;
+}
+
+.roll-delta.down {
+  background: #e3f6ee;
+  color: #14744f;
+}
+
+@keyframes rollDigitIn {
+  from {
+    opacity: 0;
+    transform: translateY(40%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rollDelta {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roll-num,
+  .roll-strip {
+    transition: none;
+  }
+
+  .roll-digit,
+  .roll-delta {
+    animation: none;
+  }
+
+  .roll-delta {
+    display: none;
+  }
 }
 
 .skeleton {

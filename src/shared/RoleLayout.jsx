@@ -43,7 +43,6 @@ const ICONS = {
   Staff: UserIcon,
   Reports: CardIcon,
   'POS & Check-in': CardIcon,
-  'Rental dispatch': BoxIcon,
   Housekeeping: HomeIcon,
   Approvals: ListIcon,
   Users: UserIcon,
@@ -56,6 +55,12 @@ const ICONS = {
   'Audit trail': ListIcon,
   Settings: GearIcon,
   Ratings: ListIcon,
+  Blacklist: UserIcon,
+  'Utility monitoring': GearIcon,
+  'Damage reports': ListIcon,
+  'Property issues': GearIcon,
+  Reservations: ListIcon,
+  Operations: BoxIcon,
 }
 
 function HomeIcon() {

@@ -2,7 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Stat } from '../shared/RoleLayout'
 import { FolderList, groupByMonth } from '../shared/FolderList'
 import { adminAnalytics, reviewStats } from '../lib/api'
-import { peso, prettyDate, prettyDateTime, rpcError, STATUS_LABELS } from '../lib/format'
+import { peso, prettyDateTime, rpcError, STATUS_LABELS } from '../lib/format'
+import { ColumnChart, TrendChart } from './Charts'
+
+const PACKAGE_LABELS = { day: 'Day tour', night: 'Night tour', overnight: 'Overnight', event: 'Event' }
+
+function shortDate(iso) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+}
 
 const RATING_CATEGORIES = [
   { key: 'overall', label: 'Overall' },
@@ -40,24 +47,6 @@ const PRESETS = [
   { id: '30', label: 'Last 30 days', days: 29 },
   { id: '90', label: 'Last 90 days', days: 89 },
 ]
-
-function Bars({ rows, valueKey, labelKey, format = (value) => String(value) }) {
-  const max = Math.max(...rows.map((row) => Number(row[valueKey]) || 0), 1)
-  if (!rows.length) return <p className="admin-note">Nothing in this range.</p>
-  return (
-    <ul className="analytics-bars">
-      {rows.map((row) => (
-        <li key={row[labelKey]}>
-          <span className="analytics-bar-label">{STATUS_LABELS[row[labelKey]] || row[labelKey]}</span>
-          <span className="analytics-track">
-            <span className="analytics-fill" style={{ width: `${((Number(row[valueKey]) || 0) / max) * 100}%` }} />
-          </span>
-          <b>{format(row[valueKey])}</b>
-        </li>
-      ))}
-    </ul>
-  )
-}
 
 export default function AnalyticsPanel({ onError }) {
   const [from, setFrom] = useState(() => shiftIso(todayIso(), -29))
@@ -111,7 +100,14 @@ export default function AnalyticsPanel({ onError }) {
 
   const totals = data?.totals || {}
   const revenue = data?.revenue || {}
-  const daily = (data?.daily || []).filter((row) => row.bookings > 0 || Number(row.collected) > 0)
+  const daily = data?.daily || []
+  const dailyActive = daily.some((row) => row.bookings > 0 || Number(row.collected) > 0)
+  const packages = (data?.by_package || []).map((row) => ({ ...row, name: PACKAGE_LABELS[row.label] || row.label }))
+  const sources = [
+    { label: 'PayMongo', value: revenue.paymongo, note: 'Online downpayments' },
+    { label: 'Cash', value: revenue.cash, note: 'At the counter' },
+    { label: 'E-wallet', value: revenue.ewallet, note: 'At the counter' },
+  ]
 
   return (
     <div className="analytics-page">
@@ -157,24 +153,15 @@ export default function AnalyticsPanel({ onError }) {
       <div className="analytics-masonry">
         <section className="admin-card">
           <h3>Revenue by source</h3>
-          <ul className="ticket-lines">
-            <li>
-              <span>PayMongo downpayments</span>
-              <b>{peso(revenue.paymongo)}</b>
-            </li>
-            <li>
-              <span>Cash at counter</span>
-              <b>{peso(revenue.cash)}</b>
-            </li>
-            <li>
-              <span>E-wallet at counter</span>
-              <b>{peso(revenue.ewallet)}</b>
-            </li>
-            <li className="ticket-subtotal">
-              <span>Total collected</span>
-              <b>{peso(revenue.collected)}</b>
-            </li>
-          </ul>
+          {Number(revenue.collected) > 0 ? (
+            <ColumnChart title="Revenue by source" rows={sources} format={peso} />
+          ) : (
+            <p className="admin-note">Nothing collected in this range.</p>
+          )}
+          <p className="chart-total">
+            <span>Total collected</span>
+            <b>{peso(revenue.collected)}</b>
+          </p>
           <h3 style={{ marginTop: 18 }}>Outcomes</h3>
           <ul className="ticket-lines">
             <li>
@@ -194,45 +181,47 @@ export default function AnalyticsPanel({ onError }) {
 
         <section className="admin-card">
           <h3>Bookings by package</h3>
-          <Bars rows={data?.by_package || []} labelKey="label" valueKey="count" />
+          <ColumnChart
+            title="Bookings by package"
+            rows={packages.map((row) => ({ label: row.name, value: row.count, note: `${peso(row.amount)} collected` }))}
+          />
           <h3 style={{ marginTop: 18 }}>Revenue by package</h3>
-          <Bars rows={data?.by_package || []} labelKey="label" valueKey="amount" format={peso} />
+          <ColumnChart
+            title="Revenue by package"
+            rows={packages.map((row) => ({ label: row.name, value: row.amount, note: `${row.count} bookings` }))}
+            format={peso}
+          />
         </section>
 
         <section className="admin-card">
           <h3>Booking status mix</h3>
-          <Bars rows={data?.by_status || []} labelKey="label" valueKey="count" />
+          <ColumnChart
+            title="Booking status mix"
+            rows={(data?.by_status || []).map((row) => ({ label: STATUS_LABELS[row.label] || row.label, value: row.count }))}
+          />
         </section>
 
         <section className="admin-card">
           <h3>Most requested rentals</h3>
-          <Bars rows={data?.top_rentals || []} labelKey="label" valueKey="count" />
+          <ColumnChart
+            title="Most requested rentals"
+            rows={(data?.top_rentals || []).map((row) => ({ label: row.label, value: row.count }))}
+          />
         </section>
       </div>
 
       <section className="admin-card">
         <h3>Daily activity</h3>
-        {daily.length === 0 ? (
-          <p className="admin-note">No bookings or payments in this range.</p>
+        <p className="admin-note">Money collected each day. Hover a day for its bookings and amount.</p>
+        {dailyActive ? (
+          <TrendChart
+            title="Daily collections"
+            rows={daily.map((row) => ({ label: shortDate(row.date), value: row.collected, bookings: row.bookings }))}
+            format={peso}
+            note={(row) => `${row.bookings} ${Number(row.bookings) === 1 ? 'booking' : 'bookings'}`}
+          />
         ) : (
-          <ul className="analytics-bars">
-            {daily.map((row) => (
-              <li key={row.date}>
-                <span className="analytics-bar-label">{prettyDate(row.date)}</span>
-                <span className="analytics-track">
-                  <span
-                    className="analytics-fill"
-                    style={{
-                      width: `${(Number(row.collected) / Math.max(...daily.map((item) => Number(item.collected) || 0), 1)) * 100}%`,
-                    }}
-                  />
-                </span>
-                <b>
-                  {row.bookings} · {peso(row.collected)}
-                </b>
-              </li>
-            ))}
-          </ul>
+          <p className="admin-note">No bookings or payments in this range.</p>
         )}
       </section>
 

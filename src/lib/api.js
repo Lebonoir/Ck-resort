@@ -61,13 +61,22 @@ export const DEFAULT_BOOKING_RULES = {
   max_advance_days: 90,
   min_lead_hours: 4,
   max_extra_hours: 6,
-  max_pax: { day: 30, night: 30, overnight: 70, event: 200 },
+  rebook_min_days: 7,
+  rebook_fee: 0,
+  rebook_fee_percent: 10,
+  tour_included_pax: 30,
+  max_pets_per_room: 2,
+  downpayment_hours: 48,
+  max_pax: { day: 50, night: 50, overnight: 70, event: 200 },
 }
 
 export async function getBookingRules() {
   try {
     const data = await rpc('booking_rules')
-    return { ...DEFAULT_BOOKING_RULES, ...(data || {}) }
+    const rules = { ...DEFAULT_BOOKING_RULES, ...(data || {}) }
+    // An older database still charges its flat fee; do not show a percent it will not apply.
+    if (data && !('rebook_fee_percent' in data)) rules.rebook_fee_percent = 0
+    return rules
   } catch {
     // booking_rules.sql may not be applied yet.
     return DEFAULT_BOOKING_RULES
@@ -234,7 +243,7 @@ export async function saveLifecycleSettings({ downpaymentHours, graceMinutes, po
 export async function listRoomUnits() {
   const { data, error } = await supabase
     .from('room_units')
-    .select('*, rooms(name, slug)')
+    .select('*, rooms(name, slug, sort_order)')
     .order('sort_order')
   throwIf(error)
   return data
@@ -242,6 +251,12 @@ export async function listRoomUnits() {
 
 export async function setRoomStatus(unitId, status) {
   return rpc('set_room_status', { p_unit: unitId, p_status: status })
+}
+
+// Holds a free room by hand (someone staying without a booking). The reason
+// is required and shows on the housekeeping board.
+export async function occupyRoom(unitId, reason) {
+  return rpc('occupy_room', { p_unit: unitId, p_reason: reason })
 }
 
 export async function listDispatches() {
@@ -444,6 +459,39 @@ export async function updateHourRate(tourType, hours, amount) {
   throwIf(error)
 }
 
+// Adding and removing prices (overnight tiers, event sizes, tour hours, items for rent).
+export async function saveOvernightTier(pax, amount) {
+  return rpc('admin_save_overnight_tier', { p_pax: pax, p_amount: amount })
+}
+
+export async function deleteOvernightTier(pax) {
+  return rpc('admin_delete_overnight_tier', { p_pax: pax })
+}
+
+export async function saveEventBand(maxPax, day, night) {
+  return rpc('admin_save_event_band', { p_max_pax: maxPax, p_day: day, p_night: night })
+}
+
+export async function deleteEventBand(maxPax) {
+  return rpc('admin_delete_event_band', { p_max_pax: maxPax })
+}
+
+export async function saveHourRate(tourType, hours, amount) {
+  return rpc('admin_save_hour_rate', { p_tour: tourType, p_hours: hours, p_amount: amount })
+}
+
+export async function deleteHourRate(tourType, hours) {
+  return rpc('admin_delete_hour_rate', { p_tour: tourType, p_hours: hours })
+}
+
+export async function saveRental(id, name, price) {
+  return rpc('admin_save_rental', { p_id: id, p_name: name, p_price: price })
+}
+
+export async function deleteRental(id) {
+  return rpc('admin_delete_rental', { p_id: id })
+}
+
 export async function updateUnitRate(id, rate) {
   const { error } = await supabase.from('room_units').update({ rate }).eq('id', id)
   throwIf(error)
@@ -546,4 +594,158 @@ export async function restoreBackup(id) {
 
 export async function restoreBackupFile(payload) {
   return rpc('admin_restore_backup_payload', { p_payload: payload })
+}
+
+// ------------------------------------------------- resort_ops.sql (ELEC 5)
+// These read-only loaders fall back to an empty result so a workspace still
+// opens before resort_ops.sql has been applied.
+async function softRpc(name, fallback, args = {}) {
+  try {
+    return (await rpc(name, args)) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+export async function rebookBooking(id, date) {
+  return rpc('rebook_booking', { p_id: id, p_date: date })
+}
+
+export async function guestBlocked() {
+  return softRpc('guest_blocked', { blocked: false })
+}
+
+export async function collectPayment(id, { cash, ewallet, actualPax = null, extraHours = null }) {
+  return rpc('collect_booking_payment', {
+    p_id: id,
+    p_cash: cash,
+    p_ewallet: ewallet,
+    p_actual_pax: actualPax,
+    p_extra_hours: extraHours,
+  })
+}
+
+export async function setHeadcount(bookingId, actualPax) {
+  return rpc('set_headcount', { p_booking: bookingId, p_actual_pax: actualPax })
+}
+
+export async function addBookingRoom(bookingId, unitId) {
+  return rpc('add_booking_room', { p_booking: bookingId, p_unit: unitId })
+}
+
+export async function addBookingAddon(bookingId, rentalId, qty) {
+  return rpc('add_booking_addon', { p_booking: bookingId, p_rental: rentalId, p_qty: qty })
+}
+
+export async function saveOpsRules({ rebookMinDays, maxPetsPerRoom }) {
+  return rpc('admin_save_ops_rules', {
+    p_rebook_min_days: rebookMinDays,
+    p_max_pets_per_room: maxPetsPerRoom,
+  })
+}
+
+export async function listBlacklist() {
+  return softRpc('blacklist_overview', [])
+}
+
+export async function addToBlacklist({ guestId = null, name = '', contact = '', reason = '' }) {
+  return rpc('blacklist_add', { p_guest: guestId, p_name: name, p_contact: contact, p_reason: reason })
+}
+
+export async function liftBlacklist(id) {
+  return rpc('blacklist_lift', { p_id: id })
+}
+
+function fileExt(file) {
+  const ext = String(file?.name || '').split('.').pop()
+  return ext && ext.length <= 5 ? ext.toLowerCase() : 'jpg'
+}
+
+export async function listDamageReports() {
+  return softRpc('damage_overview', [])
+}
+
+export async function reportDamage({ bookingId, item, reason, amount, file = null }) {
+  let proofPath = null
+  if (file) {
+    proofPath = `${bookingId}/${Date.now()}.${fileExt(file)}`
+    const { error } = await supabase.storage.from('damage-proofs').upload(proofPath, file, { upsert: false })
+    throwIf(error)
+  }
+  return rpc('report_damage', {
+    p_booking: bookingId,
+    p_item: item,
+    p_reason: reason,
+    p_amount: amount,
+    p_proof_url: proofPath,
+  })
+}
+
+export async function damageProofUrl(path) {
+  const { data, error } = await supabase.storage.from('damage-proofs').createSignedUrl(path, 600)
+  throwIf(error)
+  return data.signedUrl
+}
+
+export async function supplyOverview() {
+  return softRpc('supply_overview', { items: [], moves: [] })
+}
+
+// Which "for rent" add-on each supply item belongs to, and that add-on's price.
+export async function supplyPrices() {
+  const { data, error } = await supabase
+    .from('rental_supplies')
+    .select('rental_id, supply_item_id, qty, rentals(name, price, is_active)')
+  // The link table arrives with addon_supplies.sql; without it there are no prices to show.
+  if (error) return []
+  return data || []
+}
+
+export async function logSupplyMove({ itemId, direction, qty, bookingId = null, note = '' }) {
+  return rpc('log_supply_move', {
+    p_item: itemId,
+    p_direction: direction,
+    p_qty: qty,
+    p_booking: bookingId,
+    p_note: note,
+  })
+}
+
+export async function utilityOverview() {
+  return softRpc('utility_overview', { items: [], log: [] })
+}
+
+export async function setUtilityStatus(itemId, status, note = '', file = null) {
+  let proofPath = null
+  if (file && status !== 'ok') {
+    // Shares the private proof bucket with damage reports.
+    proofPath = `utility/${itemId}/${Date.now()}.${fileExt(file)}`
+    const { error } = await supabase.storage.from('damage-proofs').upload(proofPath, file, { upsert: false })
+    throwIf(error)
+  }
+  return rpc('set_utility_status', { p_item: itemId, p_status: status, p_note: note, p_proof_url: proofPath })
+}
+
+export async function addUtilityItem(area, name) {
+  return rpc('add_utility_item', { p_area: area, p_name: name })
+}
+
+// Operations staff start work on a reported fixture, then mark it fixed.
+export async function startUtilityRepair(itemId) {
+  return rpc('start_utility_repair', { p_item: itemId })
+}
+
+export async function uploadRoomPhoto(unitId, file) {
+  const path = `units/${unitId}-${Date.now()}.${fileExt(file)}`
+  const { error } = await supabase.storage.from('room-photos').upload(path, file, { upsert: true })
+  throwIf(error)
+  const { data } = supabase.storage.from('room-photos').getPublicUrl(path)
+  const { error: saveError } = await supabase.from('room_units').update({ image_url: data.publicUrl }).eq('id', unitId)
+  throwIf(saveError)
+  return data.publicUrl
+}
+
+export async function clearRoomPhoto(unitId) {
+  const { error } = await supabase.from('room_units').update({ image_url: null }).eq('id', unitId)
+  throwIf(error)
 }

@@ -8,15 +8,20 @@ import {
   getCatalog,
   getClosedDates,
   getOccupiedDates,
+  guestBlocked,
   quoteBooking,
+  startDownpayment,
   submitBooking,
 } from '../lib/api'
-import { peso, rpcError } from '../lib/format'
-import { TweenNumber } from '../shared/motion'
+import { peso, prettyDate, prettyDateTime, rpcError } from '../lib/format'
+import { minPax as packageMinPax, suggestRoomSets, unitLabel } from '../lib/rooms'
+import { RollingNumber } from '../shared/motion'
 import MonthCalendar, { addDaysIso, manilaTodayIso } from '../shared/MonthCalendar'
+import RoomPhoto from '../shared/RoomPhoto'
+import AddOnsStep from './AddOnsStep'
 import './booking.css'
 
-const STEPS = ['Package & date', 'Rooms', 'Rentals', 'Review']
+const STEPS = ['Package & date', 'Rooms', 'Add-ons', 'Review & pay']
 export const TOUR_TYPES = [
   { id: 'day', label: 'Day Tour', hours: '8:00 AM – 4:00 PM' },
   { id: 'night', label: 'Night Tour', hours: '5:00 PM – 12:00 AM' },
@@ -40,6 +45,10 @@ export function slotStartMs(iso, tour, shift, eventWhen) {
   return new Date(`${iso}T${String(hour).padStart(2, '0')}:00:00+08:00`).getTime()
 }
 
+function sameIds(left, right) {
+  return left.length === right.length && [...left].sort().join('|') === [...right].sort().join('|')
+}
+
 export default function BookingFlow({
   onDone,
   onHasActive,
@@ -61,15 +70,16 @@ export default function BookingFlow({
   const [occupied, setOccupied] = useState([])
   const [closures, setClosures] = useState([])
   const [rules, setRules] = useState(DEFAULT_BOOKING_RULES)
+  const [blocked, setBlocked] = useState(null)
   const [detailUnitId, setDetailUnitId] = useState('')
   const [error, setError] = useState('')
-  const [sending, setSending] = useState(false)
+  const [sending, setSending] = useState('')
   const [sent, setSent] = useState(null)
   const [summary, setSummary] = useState({ lines: [], total: 0, downpayment: 0, package_label: '' })
   const [booking, setBooking] = useState({
     tour_type: initialTourType,
     stay_date: '',
-    pax: initialTourType === 'overnight' ? 10 : 20,
+    pax: initialTourType === 'overnight' ? 10 : initialTourType === 'event' ? 20 : 30,
     hours: 8,
     extra_hours: 0,
     overnight_shift: '9:00 AM – 7:00 AM',
@@ -96,17 +106,19 @@ export default function BookingFlow({
           getCatalog(),
           getOccupiedDates(today, horizon),
           getClosedDates(today, horizon),
-          // getActiveBooking needs a real session — guests browsing pre-signup have none.
+          // These two need a real session — guests browsing pre-signup have none.
           guestMode ? Promise.resolve(null) : getActiveBooking(),
+          guestMode ? Promise.resolve(null) : guestBlocked(),
         ])
       })
       .then((result) => {
         if (!active || !result) return
-        const [nextCatalog, dates, shut, stay] = result
+        const [nextCatalog, dates, shut, stay, block] = result
         if (stay) {
           onHasActive?.(stay)
           return
         }
+        if (block?.blocked) setBlocked(block)
         setCatalog(nextCatalog)
         setOccupied(Array.isArray(dates) ? dates : [])
         setClosures(Array.isArray(shut) ? shut : [])
@@ -136,7 +148,7 @@ export default function BookingFlow({
     return () => clearTimeout(timer)
   }, [payload, booking.stay_date])
 
-  const blocked = useMemo(() => {
+  const taken = useMemo(() => {
     const slotsNeeded =
       booking.tour_type === 'overnight'
         ? ['day', 'night']
@@ -152,8 +164,32 @@ export default function BookingFlow({
 
   const closed = useMemo(() => new Map(closures.map((row) => [row.date, row.reason])), [closures])
   const maxDate = useMemo(() => addDaysIso(today, rules.max_advance_days), [today, rules.max_advance_days])
-  const maxPax = rules.max_pax?.[booking.tour_type] ?? 150
+  // A day or night tour is a 30-pax package and an overnight stay starts at
+  // its smallest tier, so the counter cannot go below that.
+  const minPax = packageMinPax(booking.tour_type, catalog, rules)
+  const maxPax = Math.max(rules.max_pax?.[booking.tour_type] ?? 150, minPax)
+  const dayOrNight = booking.tour_type === 'day' || booking.tour_type === 'night'
   const maxExtraHours = rules.max_extra_hours
+  const overnight = booking.tour_type === 'overnight'
+  const petsPerRoom = Number(rules.max_pets_per_room) || 0
+  const maxPets = petsPerRoom > 0 ? petsPerRoom * Math.max(booking.room_unit_ids.length, 1) : 99
+
+  // Rooms always have to sleep the whole group, so the guest picks one of the
+  // sets that fits the headcount instead of adding rooms one by one. Overnight
+  // sets come with the package; on other packages they are a paid add-on.
+  // A room with a reported fault is closed until staff mark it fixed.
+  const closedUnits = useMemo(() => (catalog?.units || []).filter((unit) => unit.under_repair), [catalog])
+  const roomSets = useMemo(
+    () =>
+      catalog
+        ? suggestRoomSets(
+            catalog.units.filter((unit) => !unit.under_repair),
+            catalog.rooms,
+            booking.pax,
+          )
+        : [],
+    [catalog, booking.pax],
+  )
 
   // A slot must still be at least `min_lead_hours` away to be bookable.
   const tooSoon = useMemo(() => {
@@ -167,7 +203,7 @@ export default function BookingFlow({
       if (closed.has(iso)) {
         return { className: 'shut', disabled: true, title: `Resort closed · ${closed.get(iso) || 'closed'}` }
       }
-      if (blocked.has(iso)) {
+      if (taken.has(iso)) {
         return { className: 'busy', disabled: true, title: 'That slot is already booked' }
       }
       if (tooSoon(iso)) {
@@ -175,52 +211,66 @@ export default function BookingFlow({
       }
       return {}
     },
-    [closed, blocked, tooSoon],
+    [closed, taken, tooSoon],
   )
 
   // Switching package can pull the current picks outside the new limits.
   useEffect(() => {
     const fixes = {}
     if (booking.pax > maxPax) fixes.pax = maxPax
+    else if (booking.pax < minPax) fixes.pax = minPax
     if (booking.extra_hours > maxExtraHours) fixes.extra_hours = maxExtraHours
+    if (booking.pets > maxPets) fixes.pets = maxPets
     if (booking.stay_date && (tooSoon(booking.stay_date) || closed.has(booking.stay_date))) fixes.stay_date = ''
     if (Object.keys(fixes).length) setBooking((current) => ({ ...current, ...fixes }))
-  }, [maxPax, maxExtraHours, tooSoon, closed])
+  }, [minPax, maxPax, maxExtraHours, maxPets, tooSoon, closed])
+
+  // Keep the room set in step with the headcount. Overnight falls back to the
+  // best fit (a set is required); other packages fall back to no room.
+  useEffect(() => {
+    if (!catalog) return
+    if (!overnight && booking.room_unit_ids.length === 0) return
+    const stillValid = roomSets.some((set) =>
+      sameIds(
+        set.units.map((unit) => unit.id),
+        booking.room_unit_ids,
+      ),
+    )
+    if (stillValid) return
+    const fallback = overnight && roomSets.length ? roomSets[0].units.map((unit) => unit.id) : []
+    if (sameIds(fallback, booking.room_unit_ids)) return
+    setBooking((current) => ({ ...current, room_unit_ids: fallback }))
+  }, [overnight, roomSets, catalog])
 
   function patch(next) {
     setBooking((current) => ({ ...current, ...next }))
     setError('')
   }
 
-  function toggleUnit(id, room) {
-    const selected = booking.room_unit_ids.includes(id)
-    if (selected) {
-      let next = booking.room_unit_ids.filter((item) => item !== id)
-      if (room.slug === 'gazebo') {
-        const sunriseIds = (catalog?.units || [])
-          .filter((unit) => catalog.rooms.find((item) => item.id === unit.room_id)?.slug === 'sunrise')
-          .map((unit) => unit.id)
-        next = next.filter((item) => !sunriseIds.includes(item))
-      }
-      patch({ room_unit_ids: next })
-      return
-    }
-    if (room.slug === 'sunrise') {
-      const gazeboOn = (catalog?.units || []).some(
-        (unit) =>
-          booking.room_unit_ids.includes(unit.id) &&
-          catalog.rooms.find((item) => item.id === unit.room_id)?.slug === 'gazebo',
-      )
-      if (!gazeboOn) return
-    }
-    patch({ room_unit_ids: [...booking.room_unit_ids, id] })
+  function changeTour(tourType) {
+    if (tourType === booking.tour_type) return
+    // Room rules differ per package (included sets vs paid add-ons), so start clean.
+    patch({ tour_type: tourType, room_unit_ids: [] })
+  }
+
+  // Mirrors the room block in quote_booking(): one or two rooms use the flat
+  // package rate, a third room onward is billed at its own rate.
+  function setPrice(units) {
+    const rate = (key, fallback) => Number(catalog.rates.find((row) => row.key === key)?.amount ?? fallback)
+    if (units.length === 1) return rate('room_pkg_1', 3000)
+    const order = (unit) => (catalog.rooms.find((room) => room.id === unit.room_id)?.sort_order || 0) * 100 + (unit.sort_order || 0)
+    const extra = [...units]
+      .sort((left, right) => order(left) - order(right))
+      .slice(2)
+      .reduce((sum, unit) => sum + Number(unit.rate || 0), 0)
+    return rate('room_pkg_2', 5000) + extra
   }
 
   async function sendRequest() {
     if (guestMode) {
       const ok = await confirm({
-        title: 'Send booking request',
-        message: `Submit ${summary.package_label || 'this stay'} on ${booking.stay_date} for ${peso(summary.total)}? Sign up or log in next — this exact request is sent right after, no need to fill it in again.`,
+        title: 'Continue to sign up',
+        message: `Book ${summary.package_label || 'this stay'} on ${prettyDate(booking.stay_date)} for ${peso(summary.total)}? Sign up or log in next — this exact booking is created right after, then you pay the 50% downpayment of ${peso(summary.downpayment)}.`,
         confirmLabel: 'Continue to sign up',
       })
       if (!ok) return
@@ -228,20 +278,34 @@ export default function BookingFlow({
       return
     }
     const ok = await confirm({
-      title: 'Send booking request',
-      message: `Submit ${summary.package_label || 'this stay'} on ${booking.stay_date} for ${peso(summary.total)}? The 50% downpayment is due only after the manager approves.`,
-      confirmLabel: 'Send request',
+      title: 'Pay 50% downpayment',
+      message: `Book ${summary.package_label || 'this stay'} on ${prettyDate(booking.stay_date)} and pay ${peso(summary.downpayment)} now through PayMongo? The downpayment is not refundable.`,
+      confirmLabel: 'Continue to PayMongo',
     })
     if (!ok) return
     await submitNow()
   }
 
+  async function openCheckout(created) {
+    setSending('pay')
+    try {
+      const { checkoutUrl } = await startDownpayment(created.id)
+      // replace() so Back does not land on the gateway's receipt page.
+      window.location.replace(checkoutUrl)
+    } catch (err) {
+      // The booking exists and holds the date; the guest can retry from here.
+      setError(rpcError(err))
+      setSending('')
+    }
+  }
+
   async function submitNow() {
-    setSending(true)
+    setSending('book')
     setError('')
     try {
       const created = await submitBooking(payload)
       setSent(created)
+      await openCheckout(created)
     } catch (err) {
       const message = rpcError(err)
       if (/already have an active reservation/i.test(message)) {
@@ -252,8 +316,7 @@ export default function BookingFlow({
         }
       }
       setError(message)
-    } finally {
-      setSending(false)
+      setSending('')
     }
   }
 
@@ -261,10 +324,10 @@ export default function BookingFlow({
   // automatically — the guest already confirmed it before being sent to sign up.
   const autoSubmitted = useRef(false)
   useEffect(() => {
-    if (!autoSubmit || guestMode || !catalog || autoSubmitted.current) return
+    if (!autoSubmit || guestMode || !catalog || blocked || autoSubmitted.current) return
     autoSubmitted.current = true
     submitNow()
-  }, [autoSubmit, guestMode, catalog])
+  }, [autoSubmit, guestMode, catalog, blocked])
 
   if (!catalog) {
     return (
@@ -281,40 +344,97 @@ export default function BookingFlow({
     )
   }
 
+  if (blocked) {
+    return (
+      <div className="book-done blocked">
+        <div className="check-burst">!</div>
+        <h2>Online booking is paused for this account</h2>
+        <p>
+          {blocked.reason || 'A previous reservation was marked as a no-show.'} Please call the resort at 0920 950 2510
+          so the front desk can review it.
+        </p>
+        <button type="button" className="book-btn" onClick={onDone}>
+          View my reservations
+        </button>
+      </div>
+    )
+  }
+
   if (sent) {
     return (
       <>
-        <ActionToast tone="ok" message={`${sent.reference} sent for approval.`} />
+        <ActionToast
+          busy={sending === 'pay'}
+          tone={error ? 'error' : 'ok'}
+          message={sending === 'pay' ? 'Opening PayMongo checkout…' : error || `${sent.reference} is on hold.`}
+        />
         <div className="book-done">
           <div className="check-burst">✓</div>
-          <h2>Booking sent for approval</h2>
+          <h2>{sent.reference} is holding your date</h2>
           <p>
-            {sent.reference} is with the resort manager. After approval you will pay the 50% downpayment of{' '}
-            {peso(sent.downpayment_amount)} through PayMongo.
+            Pay the 50% downpayment of {peso(sent.downpayment_amount)}
+            {sent.payment_due_at ? ` by ${prettyDateTime(sent.payment_due_at)}` : ''} to confirm it. The hold is
+            released if the payment is not completed in time.
           </p>
-          <button type="button" className="book-btn" onClick={onDone}>
-            View my reservations
-          </button>
+          {error ? <p className="otp-error">{error}</p> : null}
+          <div className="action-row">
+            <button type="button" className="book-btn" disabled={Boolean(sending)} onClick={() => openCheckout(sent)}>
+              {sending === 'pay' ? 'Opening PayMongo…' : `Pay ${peso(sent.downpayment_amount)} now`}
+            </button>
+            <button type="button" className="ghost" onClick={onDone}>
+              View my reservations
+            </button>
+          </div>
         </div>
       </>
     )
   }
 
-  const gazeboSelected = (catalog.units || []).some(
-    (unit) =>
-      booking.room_unit_ids.includes(unit.id) &&
-      catalog.rooms.find((item) => item.id === unit.room_id)?.slug === 'gazebo',
-  )
+  function renderSet(set, recommended) {
+    const ids = set.units.map((unit) => unit.id)
+    const on = sameIds(ids, booking.room_unit_ids)
+    return (
+      <button
+        key={set.key}
+        type="button"
+        className={`room-set ${on ? 'on' : ''} ${recommended ? 'recommended' : ''}`}
+        aria-pressed={on}
+        onClick={() => {
+          setDetailUnitId(ids[0])
+          patch({ room_unit_ids: ids })
+        }}
+      >
+        <span className={`set-photos count-${Math.min(set.units.length, 3)}`}>
+          {set.units.slice(0, 3).map((unit) => (
+            <RoomPhoto key={unit.id} src={unit.image_url} label={unitLabel(unit, catalog.rooms)} />
+          ))}
+        </span>
+        <span className="set-copy">
+          {recommended ? <em>Recommended</em> : null}
+          <b>{set.units.map((unit) => unitLabel(unit, catalog.rooms)).join(' + ')}</b>
+          <span>
+            Sleeps {set.capacity}
+            {set.spare > 0 ? ` · room for ${set.spare} more` : ' · exact fit'}
+            {set.units.length > 1 ? ` · ${set.units.length} rooms` : ''}
+          </span>
+          <span className="set-price">{overnight ? 'Included' : `+ ${peso(setPrice(set.units))}`}</span>
+        </span>
+      </button>
+    )
+  }
 
   const detailUnit = (catalog.units || []).find((unit) => unit.id === detailUnitId) || null
   const detailRoom = detailUnit ? catalog.rooms.find((room) => room.id === detailUnit.room_id) : null
+  const roomRate = (key, fallback) => catalog.rates.find((row) => row.key === key)?.amount || fallback
+  const roomsMissing = overnight && booking.room_unit_ids.length === 0
+  const canContinue = Boolean(booking.stay_date) && !(step === 1 && roomsMissing)
 
   return (
     <div className="book">
       <ActionToast
-        busy={sending}
+        busy={Boolean(sending)}
         tone={error ? 'error' : 'ok'}
-        message={sending ? 'Sending booking request…' : error}
+        message={sending === 'book' ? 'Creating your booking…' : sending === 'pay' ? 'Opening PayMongo checkout…' : error}
       />
       <ol className="steps">
         {STEPS.map((label, index) => (
@@ -338,7 +458,7 @@ export default function BookingFlow({
                     key={type.id}
                     type="button"
                     className={booking.tour_type === type.id ? 'chip on' : 'chip'}
-                    onClick={() => patch({ tour_type: type.id })}
+                    onClick={() => changeTour(type.id)}
                   >
                     <b>{type.label}</b>
                     <span>{type.hours}</span>
@@ -361,12 +481,16 @@ export default function BookingFlow({
                 />
                 <div className="stack">
                   <label className="counter">
-                    <span>Guest pax · up to {maxPax}</span>
+                    <span>
+                      Guest pax ·{' '}
+                      {dayOrNight ? `${minPax} included` : minPax > 1 ? `from ${minPax}` : `up to ${maxPax}`}
+                    </span>
                     <div>
                       <button
                         type="button"
-                        disabled={booking.pax <= 1}
-                        onClick={() => patch({ pax: Math.max(1, booking.pax - 1) })}
+                        disabled={booking.pax <= minPax}
+                        aria-label="Fewer guests"
+                        onClick={() => patch({ pax: Math.max(minPax, booking.pax - 1) })}
                       >
                         −
                       </button>
@@ -385,7 +509,23 @@ export default function BookingFlow({
                       {maxPax} guests is the online maximum for this package. Call the resort for larger groups.
                     </p>
                   ) : null}
-                  {booking.tour_type === 'overnight' && (
+                  {dayOrNight ? (
+                    <p className="hint">
+                      The package covers {minPax} people. Each person after that is{' '}
+                      {peso(roomRate('extra_pax_tour', 200))}
+                      {booking.pax > minPax
+                        ? `: ${booking.pax - minPax} extra adds ${peso((booking.pax - minPax) * roomRate('extra_pax_tour', 200))}.`
+                        : '.'}
+                    </p>
+                  ) : null}
+                  {overnight ? (
+                    <p className="hint">
+                      Starts at {minPax} pax. Count everyone who will sleep over: the price follows the overnight rates
+                      for your group size, and rooms are assigned to fit in the next step. Extra people who arrive on
+                      the day are {peso(roomRate('extra_pax_overnight', 800))} each.
+                    </p>
+                  ) : null}
+                  {overnight && (
                     <div className="option-col">
                       <p>22-hour shift</p>
                       {OVERNIGHT_SHIFTS.map((shift) => (
@@ -458,89 +598,105 @@ export default function BookingFlow({
           )}
 
           {step === 1 && (
-            <div className="room-grid">
-              {catalog.rooms.map((room) => {
-                const units = catalog.units.filter((unit) => unit.room_id === room.id)
-                const locked = room.slug === 'sunrise' && !gazeboSelected
-                return units.map((unit) => (
+            <div className="stack">
+              <div className="room-intro">
+                <b>{overnight ? `Rooms for ${booking.pax} pax` : `Add rooms for ${booking.pax} pax (optional)`}</b>
+                <p>
+                  {overnight
+                    ? 'Overnight rooms come with the package, so there is nothing extra to pay here. We recommend the closest fit, and every other set that sleeps your whole group is listed below it.'
+                    : `Rooms are matched to your headcount, so every set below sleeps all ${booking.pax} of you — the recommended one first, then every other option. ${peso(roomRate('room_pkg_1', 3000))} for one room, ${peso(roomRate('room_pkg_2', 5000))} for two; a third room onward is billed at its own rate.`}
+                </p>
+              </div>
+              {roomSets.length === 0 ? (
+                <p className="hint">No room set fits {booking.pax} pax online. Please call the resort for this group size.</p>
+              ) : null}
+              {closedUnits.length ? (
+                <p className="hint room-closed">
+                  {closedUnits.map((unit) => unitLabel(unit, catalog.rooms)).join(', ')}{' '}
+                  {closedUnits.length === 1 ? 'is' : 'are'} closed for repair and cannot be booked right now.
+                </p>
+              ) : null}
+              <div className="set-grid">
+                {!overnight ? (
                   <button
-                    key={unit.id}
                     type="button"
-                    disabled={locked}
-                    className={`room ${booking.room_unit_ids.includes(unit.id) ? 'on' : ''} ${locked ? 'locked' : ''}`}
+                    className={`room-set no-room ${booking.room_unit_ids.length === 0 ? 'on' : ''}`}
+                    aria-pressed={booking.room_unit_ids.length === 0}
                     onClick={() => {
-                      setDetailUnitId(unit.id)
-                      toggleUnit(unit.id, room)
+                      setDetailUnitId('')
+                      patch({ room_unit_ids: [] })
                     }}
                   >
-                    <b>
-                      {room.name} · {unit.name}
-                    </b>
-                    <span>
-                      {locked
-                        ? 'Select a Gazebo Suite room first'
-                        : `${peso(unit.rate)} · ${unit.capacity || '—'} pax`}
+                    <span className="set-copy">
+                      <b>No room</b>
+                      <span>Pool, cottages and grounds only. You can still ask the front desk for a room on the day.</span>
                     </span>
                   </button>
-                ))
-              })}
+                ) : null}
+                {roomSets[0] ? renderSet(roomSets[0], true) : null}
+              </div>
+              {roomSets.length > 1 ? (
+                <div className="set-more">
+                  <p className="set-more-head">
+                    <b>All other options</b>
+                    <span>
+                      {roomSets.length - 1} more set{roomSets.length === 2 ? '' : 's'} that sleep {booking.pax} pax
+                    </span>
+                  </p>
+                  <div className="set-grid compact">{roomSets.slice(1).map((set) => renderSet(set, false))}</div>
+                </div>
+              ) : null}
+              {overnight ? (
+                <p className="hint">
+                  Bringing more people on the day? Extra heads are {peso(roomRate('extra_pax_overnight', 800))} each. If
+                  the group outgrows the room capacity, the front desk adds another room at its room rate.
+                </p>
+              ) : null}
             </div>
           )}
 
           {step === 2 && (
-            <div className="stack">
-              {catalog.rentals.map((item) => {
-                const current = booking.rentals.find((row) => row.id === item.id)?.qty || 0
-                return (
-                  <label key={item.id} className="check-row">
-                    <input
-                      type="checkbox"
-                      checked={current > 0}
-                      onChange={(event) => {
-                        const rest = booking.rentals.filter((row) => row.id !== item.id)
-                        patch({
-                          rentals: event.target.checked ? [...rest, { id: item.id, qty: 1 }] : rest,
-                        })
-                      }}
-                    />
-                    <span>{item.name}</span>
-                    <b>{peso(item.price)}</b>
-                  </label>
-                )
-              })}
-              <label className="counter">
-                <span>Pet count · {peso(catalog.rates.find((row) => row.key === 'pet')?.amount || 200)} each</span>
-                <div>
-                  <button type="button" onClick={() => patch({ pets: Math.max(0, booking.pets - 1) })}>
-                    −
-                  </button>
-                  <strong>{booking.pets}</strong>
-                  <button type="button" onClick={() => patch({ pets: booking.pets + 1 })}>
-                    +
-                  </button>
-                </div>
-              </label>
-              <label className="select-row">
-                <span>Caterer</span>
-                <select value={booking.caterer_id} onChange={(event) => patch({ caterer_id: event.target.value })}>
-                  <option value="">No catering yet</option>
-                  {catalog.caterers.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+            <AddOnsStep catalog={catalog} booking={booking} patch={patch} maxPets={maxPets} petsPerRoom={petsPerRoom} />
           )}
 
           {step === 3 && (
             <div className="stack">
-              <p className="hint">
-                {guestMode
-                  ? "You'll sign up or log in next — this exact request is sent right after, nothing to refill. Your request then goes to the resort manager first, and the 50% downpayment is collected through PayMongo only after approval."
-                  : 'Your request is sent to the resort manager first. The 50% downpayment is collected through PayMongo only after approval. Totals are calculated on the server from current rates.'}
-              </p>
+              <div className="room-intro">
+                <b>
+                  {prettyDate(booking.stay_date)} · {booking.pax} pax
+                </b>
+                <p>
+                  {guestMode
+                    ? 'Sign up or log in next. Your booking is created right after and you go straight to the 50% downpayment on PayMongo — no waiting for approval.'
+                    : 'Your date is held as soon as you continue, and you pay the 50% downpayment on PayMongo right away. A confirmation is emailed once the payment goes through.'}
+                </p>
+              </div>
+              <ul className="policy-list">
+                <li>
+                  <b>Downpayment</b>
+                  <span>50% now, not refundable. The other 50% is paid at the front desk before check-in.</span>
+                </li>
+                <li>
+                  <b>Rebooking</b>
+                  <span>
+                    Allowed up to {rules.rebook_min_days} day{rules.rebook_min_days === 1 ? '' : 's'} before your date
+                    {Number(rules.rebook_fee_percent) > 0
+                      ? `, with a fee of ${rules.rebook_fee_percent}% of the booking total`
+                      : Number(rules.rebook_fee) > 0
+                        ? `, with a ${peso(rules.rebook_fee)} fee`
+                        : ''}
+                    .
+                  </span>
+                </li>
+                <li>
+                  <b>No-show</b>
+                  <span>A missed stay forfeits the downpayment and blocks the account from booking online.</span>
+                </li>
+                <li>
+                  <b>Headcount</b>
+                  <span>Guests are counted on arrival. Extra heads and damaged items are added to the bill.</span>
+                </li>
+              </ul>
               {error ? <p className="otp-error">{error}</p> : null}
             </div>
           )}
@@ -557,12 +713,21 @@ export default function BookingFlow({
               <span />
             )}
             {step < 3 ? (
-              <button type="button" className="book-btn" disabled={!booking.stay_date} onClick={() => setStep(step + 1)}>
+              <button type="button" className="book-btn" disabled={!canContinue} onClick={() => setStep(step + 1)}>
                 Continue
               </button>
             ) : (
-              <button type="button" className="book-btn" disabled={sending || !booking.stay_date} onClick={sendRequest}>
-                {sending ? 'Sending…' : guestMode ? 'Continue to sign up' : 'Send booking request'}
+              <button
+                type="button"
+                className="book-btn"
+                disabled={Boolean(sending) || !booking.stay_date || roomsMissing}
+                onClick={sendRequest}
+              >
+                {sending
+                  ? 'Working…'
+                  : guestMode
+                    ? 'Continue to sign up'
+                    : `Pay ${peso(summary.downpayment)} downpayment`}
               </button>
             )}
           </div>
@@ -577,7 +742,7 @@ export default function BookingFlow({
               {summary.lines.map((line) => (
                 <li key={line.label}>
                   <span>{line.label}</span>
-                  <b>{line.amount ? peso(line.amount) : 'Included'}</b>
+                  <b>{Number(line.amount) ? peso(line.amount) : 'Included'}</b>
                 </li>
               ))}
             </ul>
@@ -586,26 +751,28 @@ export default function BookingFlow({
             <div>
               <span>Total</span>
               <strong>
-                <TweenNumber value={summary.total} format={peso} />
+                <RollingNumber value={summary.total} format={peso} showDelta />
               </strong>
             </div>
             <div>
-              <span>50% DP after approval</span>
+              <span>50% downpayment · due now</span>
               <strong>
-                <TweenNumber value={summary.downpayment} format={peso} />
+                <RollingNumber value={summary.downpayment} format={peso} />
               </strong>
             </div>
           </div>
 
           {detailUnit ? (
             <div className="room-detail">
+              <RoomPhoto src={detailUnit.image_url} label={unitLabel(detailUnit, catalog.rooms)} className="wide" />
               <p className="room-detail-kicker">Room details</p>
               <h4>
                 {detailRoom?.name} · {detailUnit.name}
               </h4>
               <p className="room-detail-meta">
-                {peso(detailUnit.rate)} · sleeps {detailUnit.capacity || '—'}
+                Sleeps {detailUnit.capacity || '—'}
                 {detailUnit.bed_count ? ` · ${detailUnit.bed_count} bed${detailUnit.bed_count === 1 ? '' : 's'}` : ''}
+                {overnight ? ' · included' : ''}
               </p>
               {detailUnit.description ? <p>{detailUnit.description}</p> : null}
               {detailRoom?.description ? <p className="room-detail-note">{detailRoom.description}</p> : null}

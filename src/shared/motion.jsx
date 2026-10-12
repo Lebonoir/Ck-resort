@@ -107,37 +107,72 @@ export function CountUp({ value, duration = 1100, className = '' }) {
   )
 }
 
-export function TweenNumber({ value, format = String, duration = 480, className = '' }) {
-  const [current, setCurrent] = useState(Number(value) || 0)
-  const currentRef = useRef(current)
+const DIGITS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+
+/**
+ * Odometer-style amount: every digit sits on its own 0-9 strip and rolls to the
+ * new value, the smallest unit first. A change also tints the number briefly
+ * (up or down) and, with `showDelta`, floats the difference above it.
+ * Only transform and opacity animate; reduced motion just swaps the digits.
+ */
+export function RollingNumber({ value, format = String, showDelta = false, className = '' }) {
+  const amount = Number(value) || 0
+  const previous = useRef(amount)
+  const [change, setChange] = useState(null)
 
   useEffect(() => {
-    currentRef.current = current
-  }, [current])
+    const diff = amount - previous.current
+    previous.current = amount
+    if (!diff) return undefined
+    setChange((current) => ({ id: (current?.id || 0) + 1, diff }))
+    const timer = setTimeout(() => setChange(null), 1300)
+    return () => clearTimeout(timer)
+  }, [amount])
 
-  useEffect(() => {
-    const to = Number(value) || 0
-    if (prefersReducedMotion()) {
-      setCurrent(to)
-      return undefined
-    }
-    const from = currentRef.current
-    if (from === to) return undefined
-    const begin = performance.now()
-    let frame = 0
-    const ease = (t) => 1 - (1 - t) ** 3
-    function tick(now) {
-      const t = Math.min(1, (now - begin) / duration)
-      setCurrent(from + (to - from) * ease(t))
-      if (t < 1) frame = requestAnimationFrame(tick)
-    }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [value, duration])
+  const text = format(amount)
+  const chars = [...text]
+  let place = 0
+  // Keyed from the right so the ones digit stays the ones digit as the amount grows.
+  const cells = chars
+    .map((char, index) => ({ char, fromEnd: chars.length - index }))
+    .reverse()
+    .map((cell) => (/\d/.test(cell.char) ? { ...cell, place: place++ } : cell))
+    .reverse()
+  const tone = change ? (change.diff > 0 ? 'up' : 'down') : ''
 
-  const highlight = Number(value) !== current && Math.abs(Number(value) - current) > 0.5
-
-  return <span className={`tween-num ${highlight ? 'flashing' : ''} ${className}`.trim()}>{format(current)}</span>
+  return (
+    <span className={`roll-num ${tone} ${className}`.trim()} aria-label={text} role="text">
+      {showDelta && change ? (
+        <span key={change.id} className={`roll-delta ${tone}`} aria-hidden="true">
+          {change.diff > 0 ? '+' : '−'}
+          {format(Math.abs(change.diff))}
+        </span>
+      ) : null}
+      <span className="roll-row" aria-hidden="true">
+        {cells.map((cell) =>
+          cell.place === undefined ? (
+            <span key={`s${cell.fromEnd}`} className="roll-sep">
+              {cell.char}
+            </span>
+          ) : (
+            <span key={`d${cell.fromEnd}`} className="roll-digit">
+              <span
+                className="roll-strip"
+                style={{
+                  transform: `translateY(-${Number(cell.char) * 10}%)`,
+                  transitionDelay: `${Math.min(cell.place, 6) * 45}ms`,
+                }}
+              >
+                {DIGITS.map((digit) => (
+                  <span key={digit}>{digit}</span>
+                ))}
+              </span>
+            </span>
+          ),
+        )}
+      </span>
+    </span>
+  )
 }
 
 export function Lightbox({ src, alt, caption, onClose }) {

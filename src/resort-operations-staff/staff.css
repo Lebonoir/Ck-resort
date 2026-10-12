@@ -145,3 +145,448 @@
   font-weight: 600;
   color: var(--muted);
 }
+
+/* Reserved: booked by a guest who has not arrived yet. */
+.hk-card.reserved {
+  border-right-color: #c9a15b;
+}
+
+.pill.hk-state {
+  text-transform: capitalize;
+}
+
+.pill.hk-state.reserved {
+  background: #fbf1dd;
+  color: #7a5410;
+}
+
+.pill.hk-state.occupied {
+  background: var(--navy);
+  color: #fff;
+}
+
+.pill.hk-state.available {
+  background: #e3f6ee;
+  color: #14744f;
+}
+
+.pill.hk-state.cleaning {
+  background: #e4f0f8;
+  color: #1f5f8a;
+}
+
+.hk-card footer .hk-auto {
+  align-self: center;
+}
+
+/* ================= Housekeeping board (redesign) ================= */
+.hk {
+  display: grid;
+  gap: 18px;
+}
+
+/* Status counts double as the filter. */
+.hk-summary {
+  display: grid;
+  grid-template-columns: 1.15fr repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.hk-tab {
+  --tone: var(--navy);
+  position: relative;
+  border: 0;
+  border-radius: 18px;
+  padding: 14px 16px 14px 18px;
+  background: #fff;
+  text-align: left;
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(7, 25, 46, 0.06), inset 0 0 0 1px rgba(14, 50, 78, 0.05);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, background 0.25s ease;
+}
+
+.hk-tab::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--tone);
+}
+
+.hk-tab.occupied {
+  --tone: var(--navy-mid);
+}
+
+.hk-tab.reserved {
+  --tone: #c9a15b;
+}
+
+.hk-tab.cleaning {
+  --tone: #5a9fcb;
+}
+
+.hk-tab.available {
+  --tone: var(--ok);
+}
+
+.hk-tab b {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.hk-tab span {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.hk-tab small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.hk-tab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(7, 25, 46, 0.09), inset 0 0 0 1px rgba(14, 50, 78, 0.05);
+}
+
+.hk-tab:active {
+  transform: scale(0.985);
+}
+
+.hk-tab.on {
+  background: var(--navy);
+  box-shadow: 0 16px 30px rgba(7, 25, 46, 0.2);
+}
+
+.hk-tab.on b,
+.hk-tab.on span {
+  color: #fff;
+}
+
+.hk-tab.on small {
+  color: var(--aqua-bright);
+}
+
+.hk-tab.on::before {
+  background: var(--aqua);
+}
+
+.hk .hk-count {
+  margin-left: 0;
+}
+
+.hk-group {
+  display: grid;
+  gap: 10px;
+}
+
+.hk-group > header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.hk-group h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--navy);
+}
+
+.hk-group > header span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.hk .hk-grid {
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 10px;
+}
+
+.hk .hk-card {
+  grid-template-rows: auto auto 1fr auto;
+  gap: 10px;
+  padding: 14px 14px 12px 16px;
+  border-radius: 16px;
+  border-right: 0;
+  border-left: 4px solid #cfe3ee;
+  animation: rowIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
+}
+
+.hk .hk-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(7, 25, 46, 0.09);
+}
+
+.hk .hk-card.occupied {
+  border-left-color: var(--navy-mid);
+}
+
+.hk .hk-card.reserved {
+  border-left-color: #c9a15b;
+}
+
+.hk .hk-card.cleaning {
+  border-left-color: #5a9fcb;
+}
+
+.hk .hk-card.available {
+  border-left-color: var(--ok);
+}
+
+.hk-card h4 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--navy);
+  line-height: 1.2;
+}
+
+.hk .hk-card .meta {
+  font-size: 12px;
+}
+
+.hk-guest {
+  margin: 0;
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.hk-guest b {
+  font-size: 14px;
+  color: var(--navy);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hk-guest span,
+.hk-guest.idle {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hk .hk-timer {
+  position: relative;
+  align-self: end;
+  padding: 9px 12px;
+  overflow: hidden;
+}
+
+.hk .hk-timer span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hk .hk-timer b {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hk-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: #dde9ef;
+}
+
+.hk-progress i {
+  display: block;
+  height: 100%;
+  background: #5a9fcb;
+  transform-origin: left;
+  transition: transform 1s linear;
+}
+
+.hk .hk-card footer {
+  align-items: center;
+  min-height: 36px;
+}
+
+.hk .hk-card footer button {
+  padding: 9px 10px;
+  font-size: 13px;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease, opacity 0.2s ease;
+}
+
+.hk .hk-card footer button:hover:not(:disabled) {
+  background: var(--navy-mid);
+}
+
+.hk .hk-card footer .soft:hover:not(:disabled) {
+  background: #e1ecf1;
+}
+
+.hk .hk-card footer button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.hk .hk-card footer button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hk .hk-card footer .hk-auto {
+  margin: 0;
+}
+
+.hk-empty {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 22px 24px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(7, 25, 46, 0.05);
+}
+
+.hk-empty b {
+  color: var(--navy);
+}
+
+.hk-empty button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: #eef4f7;
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.hk-tab:focus-visible,
+.hk .hk-card footer button:focus-visible,
+.hk-empty button:focus-visible {
+  outline: 2px solid var(--aqua);
+  outline-offset: 2px;
+}
+
+@media (max-width: 980px) {
+  .hk-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hk-tab.all {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .hk .hk-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hk-tab,
+  .hk .hk-card,
+  .hk-progress i {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* Available rooms have no action, so their footer takes no space. */
+.hk .hk-card footer:empty {
+  display: none;
+}
+
+/* Marking a free room occupied by hand: reason is required and stays visible. */
+.hk-guest.hk-reason {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f4f7fa;
+}
+
+.hk-guest.hk-reason span {
+  white-space: normal;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.hk-occupy {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  animation: rowIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hk-occupy label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.hk-occupy textarea {
+  width: 100%;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--ink);
+  background: #fbfdfe;
+  resize: vertical;
+}
+
+.hk-occupy textarea:focus {
+  outline: none;
+  border-color: var(--aqua);
+  box-shadow: 0 0 0 4px rgba(62, 198, 224, 0.14);
+}
+
+.hk-occupy > div {
+  display: flex;
+  gap: 8px;
+}
+
+.hk-occupy button {
+  flex: 1;
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--navy);
+  color: #fff;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+}
+
+.hk-occupy button.soft {
+  flex: none;
+  background: #eef4f7;
+  color: var(--navy);
+}
+
+.hk-occupy button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hk-occupy button:active:not(:disabled) {
+  transform: scale(0.98);
+}

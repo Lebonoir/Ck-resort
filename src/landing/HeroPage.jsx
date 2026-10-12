@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CountUp, Lightbox, Reveal, prefersReducedMotion } from '../shared/motion'
 import GuestEstimator from '../customer-guest/GuestEstimator'
+import AvailabilityBoard from './AvailabilityBoard'
 import { REVIEWS } from './reviews'
 import './hero.css'
 
@@ -41,6 +42,7 @@ export default function HeroPage({ onBook }) {
   const [scrolled, setScrolled] = useState(false)
   const [offset, setOffset] = useState(0)
   const [preview, setPreview] = useState(null)
+  // false = closed, otherwise the package/date the estimator should open with.
   const [planning, setPlanning] = useState(false)
   const featured = REVIEWS.find((review) => review.featured) || REVIEWS[0]
 
@@ -74,6 +76,7 @@ export default function HeroPage({ onBook }) {
           </div>
         </div>
         <nav className="hero-links">
+          <a href="#dates">Dates</a>
           <a href="#stay">Stay</a>
           <a href="#gallery">Gallery</a>
           <a href="#rates">Rates</a>
@@ -104,11 +107,11 @@ export default function HeroPage({ onBook }) {
             <button type="button" className="book-now big" onClick={onBook}>
               Book your stay
             </button>
-            <button type="button" className="see-prices" onClick={() => setPlanning(true)}>
+            <button type="button" className="see-prices" onClick={() => setPlanning({})}>
               Plan your visit — no sign up needed
             </button>
-            <a className="ghost-link" href="#reviews">
-              Read guest stories
+            <a className="ghost-link" href="#dates">
+              Check available dates
             </a>
           </div>
         </div>
@@ -140,6 +143,8 @@ export default function HeroPage({ onBook }) {
           </div>
         </div>
       </section>
+
+      <AvailabilityBoard onPlan={(plan) => setPlanning(plan)} />
 
       <section className="hero-block stay" id="stay">
         <div className="stay-grid">
@@ -294,6 +299,7 @@ export default function HeroPage({ onBook }) {
       {preview ? <Lightbox src={preview.src} alt={preview.alt} caption={preview.caption} onClose={() => setPreview(null)} /> : null}
       {planning ? (
         <GuestEstimator
+          initialBooking={planning}
           onClose={() => setPlanning(false)}
           onRequireAuth={() => {
             setPlanning(false)

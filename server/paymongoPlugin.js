@@ -116,6 +116,55 @@ async function persistAccount(userClient, payload, actorId) {
   return row
 }
 
+// Booking emails are queued in SQL (email_outbox) so every path that confirms,
+// rebooks or cancels a stay is covered. This drains the queue over SMTP.
+let mailer = null
+let flushing = false
+
+async function getMailer(env) {
+  if (!env.SMTP_USER || !env.SMTP_PASS) return null
+  if (mailer) return mailer
+  const { default: nodemailer } = await import('nodemailer')
+  const port = Number(env.SMTP_PORT) || 465
+  mailer = nodemailer.createTransport({
+    host: env.SMTP_HOST || 'smtp.gmail.com',
+    port,
+    secure: port === 465,
+    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+  })
+  return mailer
+}
+
+async function flushEmails(env, supabase) {
+  const secret = env.INTERNAL_API_SECRET
+  if (flushing || !secret) return
+  flushing = true
+  try {
+    const transport = await getMailer(env)
+    if (!transport) return
+    const { data: pending, error } = await supabase.rpc('server_email_pending', { p_secret: secret })
+    if (error || !Array.isArray(pending)) return
+    for (const mail of pending) {
+      let failure = null
+      try {
+        await transport.sendMail({
+          from: env.EMAIL_FROM || env.SMTP_USER,
+          to: mail.to_email,
+          subject: mail.subject,
+          text: mail.body,
+        })
+      } catch (err) {
+        failure = String(err?.message || err).slice(0, 300)
+      }
+      await supabase.rpc('server_email_done', { p_secret: secret, p_id: mail.id, p_error: failure })
+    }
+  } catch {
+    // resort_ops.sql may not be applied yet, or SMTP is unreachable; retried on the next tick.
+  } finally {
+    flushing = false
+  }
+}
+
 function startLifecycleClock(env) {
   const supabaseUrl = env.VITE_SUPABASE_URL
   const supabaseKey = env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -123,10 +172,13 @@ function startLifecycleClock(env) {
   if (!supabaseUrl || !supabaseKey || !secret) return null
   const supabase = createClient(supabaseUrl, supabaseKey)
   const tick = () => {
-    supabase.rpc('server_advance_lifecycle', { p_secret: secret }).then(
-      () => {},
-      () => {},
-    )
+    supabase
+      .rpc('server_advance_lifecycle', { p_secret: secret })
+      .then(
+        () => {},
+        () => {},
+      )
+      .then(() => flushEmails(env, supabase))
   }
   tick()
   return setInterval(tick, 60_000)
@@ -159,7 +211,11 @@ export function paymongoPlugin(env) {
             return
           }
           if (url === '/api/health' && req.method === 'GET') {
-            send(res, 200, { ok: true, paymongo: Boolean(paymongoSecret) })
+            send(res, 200, {
+              ok: true,
+              paymongo: Boolean(paymongoSecret),
+              email: Boolean(env.SMTP_USER && env.SMTP_PASS),
+            })
             return
           }
 
@@ -219,7 +275,7 @@ export function paymongoPlugin(env) {
               body: JSON.stringify({
                 data: {
                   attributes: {
-                    send_email_receipt: false,
+                    send_email_receipt: true,
                     show_description: true,
                     show_line_items: true,
                     description: `CK Resort ${booking.reference} 50% downpayment`,
@@ -323,6 +379,7 @@ export function paymongoPlugin(env) {
               send(res, 400, { error: confirmError.message })
               return
             }
+            flushEmails(env, supabase)
             send(res, 200, { paid: true, booking })
             return
           }
@@ -339,6 +396,7 @@ export function paymongoPlugin(env) {
                 p_checkout_id: checkoutId,
                 p_payment_id: providerPaymentId,
               })
+              flushEmails(env, supabase)
             }
             if (
               checkoutId &&

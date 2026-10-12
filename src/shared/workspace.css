@@ -1495,3 +1495,41 @@ button:disabled {
 .workspace.role-admin .rating-fill {
   background: var(--aqua);
 }
+
+/* Base badge. Tone classes (.ok, .warn, .no, .status-*) only change colour,
+   so without this a pill renders as highlighted text. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: #eef4f7;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.pill.ok {
+  color: #14744f;
+}
+
+.pill.warn {
+  color: #8a5a00;
+}
+
+/* Room closed by an open utility report (housekeeping board, booking flow). */
+.hk-repair,
+.hint.room-closed {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fdf1f2;
+  color: #8f2b37;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}

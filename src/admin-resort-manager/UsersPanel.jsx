@@ -278,7 +278,9 @@ export default function UsersPanel({ users, onReload, onError, onSaved }) {
                 </small>
               </div>
               <div className="user-row-actions">
-                <span className={`pill ${user.is_active ? 'ok' : 'no'}`}>{user.is_active ? 'active' : 'inactive'}</span>
+                <span className={`user-state ${user.is_active ? 'on' : 'off'}`}>
+                  {user.is_active ? 'Active' : 'Deactivated'}
+                </span>
                 <button type="button" className="desk-ghost" onClick={() => openManage(user)}>
                   Manage Account
                 </button>

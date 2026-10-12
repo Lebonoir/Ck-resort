@@ -10,6 +10,7 @@ import {
   listClosures,
   removeClosure,
   saveBookingRules,
+  saveOpsRules,
 } from '../lib/api'
 import { prettyDate, rpcError } from '../lib/format'
 
@@ -89,7 +90,11 @@ export default function SchedulePanel({ bookings = [], onError, onSaved }) {
     setBusy('rules')
     onError('')
     try {
-      const next = await saveBookingRules(rules)
+      await saveBookingRules(rules)
+      const next = await saveOpsRules({
+        rebookMinDays: Number(rules.rebook_min_days) || 0,
+        maxPetsPerRoom: Number(rules.max_pets_per_room) || 0,
+      })
       setRules({ ...DEFAULT_BOOKING_RULES, ...(next || {}) })
       onSaved('Booking limits saved.')
     } catch (err) {
@@ -219,7 +224,8 @@ export default function SchedulePanel({ bookings = [], onError, onSaved }) {
       <section className="admin-card">
         <h3>Booking limits</h3>
         <p className="admin-note">
-          These caps are enforced in the guest booking form and re-checked on the server when a request is submitted.
+          These caps are enforced in the guest booking form and re-checked on the server when a booking is made. The
+          rebooking fee itself is set under Rates.
         </p>
         <div className="rate-grid">
           <label>
@@ -255,6 +261,30 @@ export default function SchedulePanel({ bookings = [], onError, onSaved }) {
               value={rules.max_extra_hours}
               onChange={(event) =>
                 setRules((current) => ({ ...current, max_extra_hours: Math.max(0, Number(event.target.value) || 0) }))
+              }
+            />
+          </label>
+          <label>
+            Rebooking cut-off (days before stay)
+            <input
+              type="number"
+              min="0"
+              max="90"
+              value={rules.rebook_min_days}
+              onChange={(event) =>
+                setRules((current) => ({ ...current, rebook_min_days: Math.max(0, Number(event.target.value) || 0) }))
+              }
+            />
+          </label>
+          <label>
+            Max pets per room (0 = no limit)
+            <input
+              type="number"
+              min="0"
+              max="20"
+              value={rules.max_pets_per_room}
+              onChange={(event) =>
+                setRules((current) => ({ ...current, max_pets_per_room: Math.max(0, Number(event.target.value) || 0) }))
               }
             />
           </label>

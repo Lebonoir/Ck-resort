@@ -294,3 +294,471 @@
   font-size: 13px;
   color: var(--muted);
 }
+
+/* ---- Booking lookup: search, one list at a time, compact rows ---- */
+.desk-search input:focus {
+  outline: none;
+  border-color: var(--aqua);
+  box-shadow: 0 0 0 4px rgba(62, 198, 224, 0.14);
+}
+
+.desk-walkin {
+  flex: none;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+}
+
+.desk-walkin:hover {
+  opacity: 0.92;
+}
+
+.desk-walkin:active {
+  transform: scale(0.98);
+}
+
+.desk-queues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.desk-queues button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #dbe7ee;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: #f4fafc;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.desk-queues button span {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.desk-queues button.none {
+  color: var(--muted);
+  background: transparent;
+}
+
+.desk-queues button:hover {
+  background: #e9f4f8;
+}
+
+.desk-queues button:active {
+  transform: scale(0.97);
+}
+
+.desk-queues button.on,
+.desk-queues button.on:hover {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.desk-queue {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.desk-queue li + li {
+  border-top: 1px solid #edf3f6;
+}
+
+.desk-queue button {
+  width: 100%;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  padding: 12px 10px;
+  text-align: left;
+  font: inherit;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.desk-queue button:hover {
+  background: #f4fafc;
+}
+
+.desk-queue button.on {
+  background: #e9f6fa;
+  border-left-color: var(--aqua);
+}
+
+.desk-queue-who {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.desk-queue-who b {
+  color: var(--navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desk-queue-who small {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desk-queue-when {
+  flex: none;
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.desk-queue-when .pill {
+  font-style: normal;
+}
+
+.desk-queue-empty {
+  margin: 0;
+  padding: 22px 12px;
+  border-radius: 14px;
+  background: #f4fafc;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 980px) {
+  .desk-queue {
+    max-height: 320px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desk-walkin,
+  .desk-queues button,
+  .desk-queue button {
+    transition: none;
+  }
+}
+
+/* ---- Print receipt: paper feeds out of a printer, then saves as a PDF ---- */
+.rcpt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: start center;
+  padding: 6vh 16px 24px;
+  overflow-y: auto;
+  background: rgba(7, 25, 46, 0.62);
+  backdrop-filter: blur(8px);
+  animation: rcptFade 0.25s ease both;
+}
+
+.rcpt-stage {
+  width: min(340px, 100%);
+  display: grid;
+  justify-items: center;
+}
+
+.rcpt-printer {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 16px 18px 22px;
+  border-radius: 18px 18px 10px 10px;
+  background: linear-gradient(180deg, #17365a 0%, #0b2545 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 40px rgba(4, 16, 32, 0.45);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+}
+
+.rcpt-printer p {
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rcpt-light {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f2c14e;
+  animation: rcptBlink 0.7s ease-in-out infinite;
+}
+
+.rcpt-stage.done .rcpt-light {
+  background: #3fd49b;
+  animation: none;
+}
+
+/* The slot the paper comes out of. */
+.rcpt-slot {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 7px;
+  height: 6px;
+  border-radius: 3px;
+  background: #041020;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.rcpt-stage.printing .rcpt-printer {
+  animation: rcptHum 0.18s linear infinite;
+}
+
+.rcpt-feed {
+  width: calc(100% - 44px);
+  margin-top: -9px;
+  overflow: hidden;
+}
+
+.rcpt-paper {
+  position: relative;
+  padding: 22px 16px 26px;
+  background: #fffdf8;
+  color: #1c2733;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  display: grid;
+  gap: 10px;
+  box-shadow: 0 14px 30px rgba(4, 16, 32, 0.3);
+  /* Fed out a line at a time, like a thermal printer. */
+  animation: rcptFeed 2.2s steps(26, end) both;
+}
+
+.rcpt-paper.still {
+  animation: none;
+}
+
+/* Torn edge at the bottom of the roll. */
+.rcpt-paper::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  height: 8px;
+  background:
+    linear-gradient(-45deg, transparent 5.6px, #fffdf8 0) 0 0 / 8px 8px repeat-x,
+    linear-gradient(45deg, transparent 5.6px, #fffdf8 0) 0 0 / 8px 8px repeat-x;
+  transform: scaleY(-1);
+}
+
+.rcpt-feed {
+  padding-bottom: 10px;
+}
+
+.rcpt-paper header,
+.rcpt-paper footer {
+  text-align: center;
+}
+
+.rcpt-paper header b {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rcpt-paper header span,
+.rcpt-paper footer {
+  color: #5d6b78;
+  font-size: 11px;
+}
+
+.rcpt-meta {
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px dashed #b9c2ca;
+  border-bottom: 1px dashed #b9c2ca;
+  display: grid;
+  gap: 2px;
+}
+
+.rcpt-meta div,
+.rcpt-lines li,
+.rcpt-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.rcpt-meta dt {
+  color: #5d6b78;
+}
+
+.rcpt-meta dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.rcpt-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.rcpt-lines span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rcpt-lines b,
+.rcpt-total b {
+  flex: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rcpt-total {
+  margin: 0;
+  padding: 8px 0;
+  border-top: 1px dashed #b9c2ca;
+  border-bottom: 1px dashed #b9c2ca;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.rcpt-total b {
+  font-weight: 700;
+}
+
+.rcpt-tender {
+  color: #5d6b78;
+}
+
+.rcpt-actions {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.rcpt-again,
+.rcpt-close {
+  border: 0;
+  border-radius: 12px;
+  padding: 11px 18px;
+  font-weight: 700;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease;
+  animation: rcptRise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rcpt-again {
+  background: #fff;
+  color: var(--navy);
+}
+
+.rcpt-close {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.rcpt-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.rcpt-again:active,
+.rcpt-close:active {
+  transform: scale(0.97);
+}
+
+.rcpt-again:focus-visible,
+.rcpt-close:focus-visible {
+  outline: 2px solid var(--aqua);
+  outline-offset: 2px;
+}
+
+@keyframes rcptFeed {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes rcptHum {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(0.6px);
+  }
+}
+
+@keyframes rcptBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes rcptFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rcptRise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rcpt-overlay,
+  .rcpt-paper,
+  .rcpt-light,
+  .rcpt-stage.printing .rcpt-printer,
+  .rcpt-again,
+  .rcpt-close {
+    animation: none;
+  }
+}

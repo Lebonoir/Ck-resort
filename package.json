@@ -12,10 +12,12 @@
     "db:lifecycle": "node scripts/apply-lifecycle.mjs",
     "db:rules": "node scripts/apply-rules.mjs",
     "db:extras": "node scripts/apply-extras.mjs",
-    "db:backup": "node scripts/apply-backup.mjs"
+    "db:backup": "node scripts/apply-backup.mjs",
+    "db:ops": "node scripts/apply-ops.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
+    "nodemailer": "^10.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

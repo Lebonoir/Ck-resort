@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActionToast, BellIcon, Panel, RoleLayout } from '../shared/RoleLayout'
+import { ActionToast, BellIcon, RoleLayout } from '../shared/RoleLayout'
 import { Lightbox } from '../shared/motion'
 import BookingFlow from './BookingFlow'
 import { readPendingPlan } from './GuestEstimator'
 import RatingsPanel from './RatingsPanel'
+import RebookDialog from './RebookDialog'
+import Reservations from './Reservations'
 import GuestHome from './GuestHome'
 import { useLiveData } from '../shared/useLiveData'
 import { CountdownPill } from '../shared/Countdown'
 import { FolderList } from '../shared/FolderList'
 import { useConfirm } from '../shared/ConfirmDialog'
 import {
+  DEFAULT_BOOKING_RULES,
   cancelBooking,
   deleteNotification,
   getActiveBooking,
+  getBookingRules,
   getCatalog,
   listBookings,
   listNotifications,
@@ -27,11 +31,11 @@ import {
   paymentStatusLabel,
   peso,
   prettyDate,
-  prettyDateTime,
   rpcError,
   STATUS_LABELS,
   stayEndsAt,
   stayWindowLabel,
+  verifiedPaid,
 } from '../lib/format'
 import './booking.css'
 
@@ -242,6 +246,8 @@ export default function CustomerGuest({ session, onSignOut }) {
   const [noticeId, setNoticeId] = useState('')
   const [activeStay, setActiveStay] = useState(null)
   const [reviewable, setReviewable] = useState([])
+  const [rules, setRules] = useState(DEFAULT_BOOKING_RULES)
+  const [rebooking, setRebooking] = useState(null)
   // One-shot: a plan built pre-signup in the landing page's estimator. Read
   // once on mount, then only cleared by a fresh openBooking() so it can't
   // clobber a later, unrelated "Book this" click.
@@ -249,12 +255,14 @@ export default function CustomerGuest({ session, onSignOut }) {
 
   async function reload() {
     try {
-      const [nextCatalog, nextBookings, nextNotes, nextReviewable] = await Promise.all([
+      const [nextCatalog, nextBookings, nextNotes, nextReviewable, nextRules] = await Promise.all([
         getCatalog(),
         listBookings(),
         listNotifications(),
         reviewableStays(),
+        getBookingRules(),
       ])
+      setRules(nextRules)
       setCatalog(nextCatalog)
       setBookings(nextBookings)
       setNotes(nextNotes)
@@ -285,7 +293,7 @@ export default function CustomerGuest({ session, onSignOut }) {
 
   useEffect(() => {
     if (active !== 'My reservations' || !focusId) return
-    document.querySelector('.list li.focus')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    document.querySelector('.resv-card.focus, .resv-history li.focus')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [active, focusId])
 
   const currentStay = activeStay || bookings.find((row) => GUEST_ACTIVE_STATUSES.includes(row.status))
@@ -363,9 +371,13 @@ export default function CustomerGuest({ session, onSignOut }) {
   }
 
   async function cancel(booking) {
+    const paid = verifiedPaid(booking)
     const ok = await confirm({
       title: 'Cancel reservation',
-      message: `Cancel ${booking.reference}? This cannot be undone.`,
+      message:
+        paid > 0
+          ? `Cancel ${booking.reference}? The downpayment of ${peso(paid)} is not refundable. This cannot be undone.`
+          : `Cancel ${booking.reference}? This cannot be undone.`,
       confirmLabel: 'Cancel reservation',
       danger: true,
     })
@@ -376,7 +388,9 @@ export default function CustomerGuest({ session, onSignOut }) {
     setNoticeId(booking.id)
     try {
       await cancelBooking(booking.id)
-      setSaved(`${booking.reference} cancelled.`)
+      setSaved(
+        paid > 0 ? `${booking.reference} cancelled. The downpayment was not refunded.` : `${booking.reference} cancelled.`,
+      )
       await reload()
     } catch (err) {
       setError(rpcError(err))
@@ -464,8 +478,8 @@ export default function CustomerGuest({ session, onSignOut }) {
               <p className="band-kicker">Choose your escape</p>
               <h2>Book the pool, the cabanas, the whole place.</h2>
               <p className="band-lede">
-                Pick a package and date, add rooms, then rentals and catering. A 50% downpayment is only due once the
-                manager approves your request.
+                Pick a package and date, choose your rooms, then add rentals and catering. Pay the 50% downpayment
+                right away to lock the date — a confirmation lands in your email.
               </p>
             </div>
             <div className="pkg-grid">
@@ -565,67 +579,38 @@ export default function CustomerGuest({ session, onSignOut }) {
       )}
 
       {active === 'My reservations' && (
-        <Panel title="Your bookings">
-          <FolderList
-            empty="No reservations yet."
-            groups={[
-              {
-                id: 'active',
-                label: 'Active',
-                items: bookings.filter((item) => GUEST_ACTIVE_STATUSES.includes(item.status)),
-                defaultOpen: true,
-              },
-              {
-                id: 'past',
-                label: 'Past',
-                items: bookings.filter((item) => !GUEST_ACTIVE_STATUSES.includes(item.status)),
-                defaultOpen: !bookings.some((item) => GUEST_ACTIVE_STATUSES.includes(item.status)),
-              },
-            ]}
-            renderItem={(item) => (
-              <li key={item.id} className={item.id === focusId ? 'focus' : ''}>
-                <div>
-                  <b>
-                    {item.reference} · {item.package_label}
-                  </b>
-                  <small>
-                    {prettyDate(item.stay_date)} · {item.pax} pax · {peso(item.override_amount || item.total_amount)}
-                  </small>
-                  {item.rejection_reason ? <small>{item.rejection_reason}</small> : null}
-                  {item.status === 'awaiting_downpayment' && item.payment_due_at ? (
-                    <small>Pay by {prettyDateTime(item.payment_due_at)}</small>
-                  ) : null}
-                  {item.status === 'no_show' && Number(item.credit_held) > 0 ? (
-                    <small>Downpayment held as credit: {peso(item.credit_held)}</small>
-                  ) : null}
-                  {item.status === 'awaiting_downpayment' ? (
-                    <div className="action-row">
-                      <button type="button" className="book-btn" disabled={Boolean(busy)} onClick={() => pay(item)}>
-                        {busyKind === 'pay' && busyId === item.id
-                          ? 'Opening PayMongo…'
-                          : `Pay ${peso(item.downpayment_amount)}`}
-                      </button>
-                      <button type="button" className="ghost" disabled={Boolean(busy)} onClick={() => verify(item)}>
-                        {busyKind === 'verify' && busyId === item.id ? 'Checking…' : 'I already paid'}
-                      </button>
-                    </div>
-                  ) : null}
-                  {['pending_approval', 'awaiting_downpayment'].includes(item.status) ? (
-                    <button type="button" className="text-link" disabled={Boolean(busy)} onClick={() => cancel(item)}>
-                      {busyKind === 'cancel' && busyId === item.id ? 'Cancelling…' : 'Cancel request'}
-                    </button>
-                  ) : null}
-                  {(error || saved) && noticeId === item.id ? (
-                    <p className={`flash inline-flash ${error ? 'error' : 'ok'}`}>{error || saved}</p>
-                  ) : null}
-                </div>
-                <span className={`pill status-${item.status}`}>{STATUS_LABELS[item.status] || item.status}</span>
-              </li>
-            )}
-          />
-        </Panel>
+        <Reservations
+          bookings={bookings}
+          catalog={catalog}
+          rules={rules}
+          loading={!catalog}
+          focusId={focusId}
+          busy={busy}
+          busyKind={busyKind}
+          noticeId={noticeId}
+          error={error}
+          saved={saved}
+          onPay={pay}
+          onVerify={verify}
+          onCancel={cancel}
+          onRebook={setRebooking}
+          onBook={() => openBooking(initialPackage)}
+        />
       )}
     </RoleLayout>
+    {rebooking ? (
+      <RebookDialog
+        booking={rebooking}
+        onClose={() => setRebooking(null)}
+        onDone={async (message) => {
+          setNoticeId(rebooking.id)
+          setRebooking(null)
+          setError('')
+          setSaved(message)
+          await reload()
+        }}
+      />
+    ) : null}
     {preview ? (
       <Lightbox
         src={preview.src}

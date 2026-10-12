@@ -898,3 +898,149 @@
     white-space: nowrap;
   }
 }
+
+/* ---- Public availability calendar ---- */
+.dates-block {
+  padding-top: 72px;
+}
+
+.dates-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.dates-chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 26px;
+  max-width: 520px;
+}
+
+.dates-chips button {
+  border: 1.5px solid rgba(14, 50, 78, 0.12);
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px 14px;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+  color: #07192e;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease, background 0.25s ease;
+}
+
+.dates-chips button:hover {
+  transform: translateY(-1px);
+}
+
+.dates-chips button:active {
+  transform: scale(0.98);
+}
+
+.dates-chips button span {
+  font-size: 12px;
+  color: #5d6f7c;
+}
+
+.dates-chips button.on {
+  background: #07192e;
+  border-color: #07192e;
+  color: #fff;
+}
+
+.dates-chips button.on span {
+  color: #9be7f3;
+}
+
+.dates-detail {
+  margin-top: 22px;
+  max-width: 520px;
+  border-top: 1px solid rgba(14, 50, 78, 0.12);
+  padding-top: 18px;
+}
+
+.dates-day {
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-size: 28px;
+  color: #07192e;
+}
+
+.dates-detail ul {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+.dates-detail li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px dashed rgba(14, 50, 78, 0.14);
+  font-size: 15px;
+  color: #10243a;
+}
+
+.dates-detail li b {
+  font-weight: 600;
+  color: #5d6f7c;
+}
+
+.dates-detail li.open b {
+  color: #1c9a6a;
+}
+
+.dates-detail li.taken span,
+.dates-detail li.closed span {
+  color: #8a9aa6;
+}
+
+.dates-detail .book-now:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hero-copy .dates-empty,
+.dates-empty {
+  margin: 0;
+  font-size: 15px;
+  color: #5d6f7c;
+  line-height: 1.6;
+}
+
+.dates-cal {
+  background: #fff;
+  border-radius: 26px;
+  padding: 22px;
+  box-shadow: 0 30px 60px rgba(7, 25, 46, 0.09), inset 0 0 0 1px rgba(14, 50, 78, 0.05);
+}
+
+.dates-skeleton {
+  min-height: 340px;
+  border-radius: 16px;
+  background: linear-gradient(100deg, #eef4f7 30%, #f8fbfc 50%, #eef4f7 70%);
+  background-size: 200% 100%;
+  animation: datesShimmer 1.4s linear infinite;
+}
+
+@keyframes datesShimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .dates-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dates-skeleton {
+    animation: none;
+  }
+}

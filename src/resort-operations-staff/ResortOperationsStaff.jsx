@@ -1,44 +1,31 @@
 import { useEffect, useState } from 'react'
 import { ActionToast, RoleLayout, Stat } from '../shared/RoleLayout'
-import RentalDispatch from '../shared/RentalDispatch'
-import Housekeeping from '../shared/Housekeeping'
+import Housekeeping, { reservedRooms, roomState } from '../shared/Housekeeping'
+import SupplyLog from '../shared/SupplyLog'
+import UtilityMonitor from '../shared/UtilityMonitor'
+import DamageReports from '../shared/DamageReports'
 import { useLiveData } from '../shared/useLiveData'
-import {
-  dispatchRental,
-  getCatalog,
-  listBookings,
-  listDispatches,
-  listRoomUnits,
-  returnRental,
-  deleteReturnedDispatch,
-  setRoomStatus,
-} from '../lib/api'
+import { listBookings, listRoomUnits, occupyRoom, setRoomStatus } from '../lib/api'
 import { rpcError } from '../lib/format'
 import './staff.css'
 
-const NAV = [{ section: 'Operations', items: ['Housekeeping', 'Rental dispatch'] }]
+const NAV = [
+  { section: 'Operations', items: ['Housekeeping'] },
+  { section: 'Reports', items: ['Supplies', 'Utility monitoring', 'Damage reports'] },
+]
 
 export default function ResortOperationsStaff({ session, onSignOut }) {
   const [active, setActive] = useState('Housekeeping')
   const [rooms, setRooms] = useState([])
   const [bookings, setBookings] = useState([])
-  const [catalog, setCatalog] = useState(null)
-  const [logs, setLogs] = useState([])
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
   const [busy, setBusy] = useState('')
 
   async function reload() {
-    const [units, nextBookings, nextCatalog, nextLogs] = await Promise.all([
-      listRoomUnits(),
-      listBookings(),
-      getCatalog(),
-      listDispatches(),
-    ])
+    const [units, nextBookings] = await Promise.all([listRoomUnits(), listBookings()])
     setRooms(units)
     setBookings(nextBookings)
-    setCatalog(nextCatalog)
-    setLogs(nextLogs)
   }
 
   useEffect(() => {
@@ -63,38 +50,29 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
     }
   }
 
-  async function handleDispatch(payload) {
+async function occupyRoomByHand(room, reason) {
+    const title = `${room.rooms?.name || 'Room'} ${room.name}`
     setError('')
     setSaved('')
-    setBusy('dispatch')
+    setBusy(room.id)
     try {
-      await dispatchRental(payload.guestId, payload.itemId, payload.qty)
+      await occupyRoom(room.id, reason)
       await reload()
-      setSaved('Rental logged as out.')
+      setSaved(`${title} · marked occupied.`)
+      return true
     } catch (err) {
       setError(rpcError(err))
+      return false
     } finally {
       setBusy('')
     }
   }
 
-  async function handleReturn(id) {
-    setError('')
-    setSaved('')
-    setBusy(`return:${id}`)
-    try {
-      await returnRental(id)
-      await reload()
-      setSaved('Rental marked returned.')
-    } catch (err) {
-      setError(rpcError(err))
-    } finally {
-      setBusy('')
-    }
-  }
   const occupied = rooms.filter((room) => room.status === 'occupied').length
   const cleaning = rooms.filter((room) => room.status === 'cleaning').length
-  const ready = rooms.filter((room) => room.status === 'available').length
+  const held = reservedRooms(bookings)
+  const reserved = rooms.filter((room) => roomState(room, held) === 'reserved').length
+  const ready = rooms.filter((room) => roomState(room, held) === 'available').length
   const inside = bookings.filter((item) => item.status === 'checked_in')
 
   return (
@@ -102,50 +80,27 @@ export default function ResortOperationsStaff({ session, onSignOut }) {
       <ActionToast
         busy={Boolean(busy)}
         tone={error ? 'error' : 'ok'}
-        message={
-          busy === 'dispatch'
-            ? 'Logging rental…'
-            : String(busy).startsWith('return:')
-              ? 'Marking returned…'
-              : busy
-                ? 'Updating room…'
-                : error || saved
-        }
+        message={busy ? 'Updating room…' : error || saved}
       />
       <div className="stats">
         <Stat label="Occupied" value={String(occupied)} hint="Live stays" />
+        <Stat label="Reserved" value={String(reserved)} hint="Booked, not arrived" />
         <Stat label="Cleaning" value={String(cleaning)} hint="Turnaround" />
         <Stat label="Available" value={String(ready)} hint="Ready to sell" />
-        <Stat label="Rentals out" value={String(logs.filter((item) => item.status === 'out').length)} hint="Need return" />
       </div>
 
       {active === 'Housekeeping' && (
-        <Housekeeping rooms={rooms} bookings={bookings} busy={busy} onChangeStatus={changeRoom} />
+        <Housekeeping rooms={rooms} bookings={bookings} busy={busy} onChangeStatus={changeRoom} onOccupy={occupyRoomByHand} />
       )}
 
-      {active === 'Rental dispatch' && (
-        <RentalDispatch
-          guests={inside}
-          rentals={catalog?.rentals || []}
-          logs={logs}
-          onDispatch={handleDispatch}
-          onReturn={handleReturn}
-          onDeleteReturned={async (id) => {
-            setError('')
-            setSaved('')
-            setBusy(`delete:${id}`)
-            try {
-              await deleteReturnedDispatch(id)
-              await reload()
-              setSaved('Returned rental log removed.')
-            } catch (err) {
-              setError(rpcError(err))
-            } finally {
-              setBusy('')
-            }
-          }}
-        />
+      {active === 'Supplies' && <SupplyLog guests={inside} onError={setError} onSaved={setSaved} />}
+
+      {active === 'Utility monitoring' && <UtilityMonitor canFix onError={setError} onSaved={setSaved} />}
+
+      {active === 'Damage reports' && (
+        <DamageReports bookings={bookings} onError={setError} onSaved={setSaved} onChanged={reload} />
       )}
+
     </RoleLayout>
   )
 }
